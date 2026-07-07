@@ -12,6 +12,7 @@ var enemy_data: Dictionary = {}
 var weapon_data: Dictionary = {}
 var barricade_data: Dictionary = {}
 var wave_data: Dictionary = {}
+var mutation_data: Dictionary = {}
 var reward_data: Dictionary = {}
 var gate_data: Dictionary = {}
 var mission_data: Dictionary = {}
@@ -32,6 +33,7 @@ func _load_all_data() -> void:
 	weapon_data = DataRepository.load_json(DATA_ROOT + "weapons.json", {})
 	barricade_data = DataRepository.load_json(DATA_ROOT + "barricades.json", {})
 	wave_data = DataRepository.load_json(DATA_ROOT + "waves.json", {})
+	mutation_data = DataRepository.load_json(DATA_ROOT + "mutations.json", {})
 	reward_data = DataRepository.load_json(DATA_ROOT + "rewards.json", {})
 	gate_data = DataRepository.load_json(DATA_ROOT + "gates.json", {})
 	mission_data = DataRepository.load_json(DATA_ROOT + "missions.json", {})

@@ -30,7 +30,8 @@ func update_enemies(delta: float) -> void:
 func spawn_enemy(enemy_id: String, spawn_position: Vector2, modifier: float = 1.0) -> Node:
 	var enemy: Node = enemy_scene.instantiate()
 	add_child(enemy)
-	enemy.initialize(run_manager, enemy_id, spawn_position, modifier)
+	var mutation_modifiers: Dictionary = run_manager.mutation_manager.get_enemy_stat_modifiers(enemy_id) if run_manager.mutation_manager != null else {}
+	enemy.initialize(run_manager, enemy_id, spawn_position, modifier, mutation_modifiers)
 	enemies.append(enemy)
 	return enemy
 
@@ -40,6 +41,27 @@ func spawn_obstacle(obstacle_type: String, spawn_position: Vector2) -> Node:
 	obstacle.initialize(run_manager, obstacle_type, spawn_position)
 	obstacles.append(obstacle)
 	return obstacle
+
+func spawn_obstacle_with_config(obstacle_type: String, spawn_position: Vector2, config_overrides: Dictionary = {}) -> Node:
+	var obstacle: Node = obstacle_scene.instantiate()
+	add_child(obstacle)
+	obstacle.initialize(run_manager, obstacle_type, spawn_position, config_overrides)
+	obstacles.append(obstacle)
+	return obstacle
+
+func unregister_obstacle(obstacle: Node) -> void:
+	obstacles.erase(obstacle)
+
+func clear_all_obstacles(reason: String = "reset") -> void:
+	var obstacles_to_clear := obstacles.duplicate()
+	obstacles.clear()
+	for obstacle in obstacles_to_clear:
+		if not is_instance_valid(obstacle):
+			continue
+		if obstacle.has_method("force_cleanup"):
+			obstacle.call("force_cleanup", reason)
+		else:
+			obstacle.queue_free()
 
 func get_nearest_enemy(from_position: Vector2, max_range: float) -> Node2D:
 	var best: Node2D
@@ -74,3 +96,33 @@ func get_nearest_obstacle(from_position: Vector2, max_range: float) -> Node2D:
 			best_distance = distance
 			best = obstacle
 	return best
+
+func damage_enemies_in_radius(center: Vector2, radius: float, damage: float) -> int:
+	var hit_count := 0
+	for enemy in enemies.duplicate():
+		if not is_instance_valid(enemy):
+			continue
+		if enemy.global_position.distance_to(center) > radius:
+			continue
+		enemy.take_damage(damage, true)
+		hit_count += 1
+	return hit_count
+
+func refresh_enemy_mutation_modifiers() -> void:
+	for enemy in enemies:
+		if not is_instance_valid(enemy):
+			continue
+		if enemy.has_method("set_mutation_modifiers"):
+			enemy.set_mutation_modifiers(run_manager.mutation_manager.get_enemy_stat_modifiers(String(enemy.enemy_id)))
+
+func apply_slow_in_radius(center: Vector2, radius: float, amount: float, duration: float) -> int:
+	var hit_count := 0
+	for enemy in enemies:
+		if not is_instance_valid(enemy):
+			continue
+		if enemy.global_position.distance_to(center) > radius:
+			continue
+		if enemy.has_method("apply_slow"):
+			enemy.apply_slow(amount, duration)
+			hit_count += 1
+	return hit_count

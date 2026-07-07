@@ -9,6 +9,7 @@ var max_time := 2.0
 var splash_radius := 0.0
 var pierce_count := 0
 var hits_done := 0
+var hit_targets: Array[int] = []
 
 func initialize(run: Node, origin: Vector2, target_position: Vector2, weapon: Dictionary, spread_angle: float) -> void:
 	run_manager = run
@@ -16,6 +17,7 @@ func initialize(run: Node, origin: Vector2, target_position: Vector2, weapon: Di
 	weapon_data = weapon
 	splash_radius = float(weapon.get("splash_radius", 0))
 	pierce_count = int(weapon.get("pierce_count", 0))
+	hit_targets.clear()
 	var direction: Vector2 = (target_position - origin).normalized().rotated(spread_angle)
 	velocity = direction * float(weapon.get("projectile_speed", 400))
 	run_manager.ui_manager.spawn_bullet_trail(origin, origin + direction * 26.0, Color("ffcc7a"))
@@ -28,6 +30,8 @@ func _process(delta: float) -> void:
 	for enemy in enemies:
 		if not is_instance_valid(enemy):
 			continue
+		if hit_targets.has(enemy.get_instance_id()):
+			continue
 		if global_position.distance_to(enemy.global_position) <= 16.0:
 			_hit_enemy(enemy)
 			if hits_done > pierce_count:
@@ -37,13 +41,34 @@ func _process(delta: float) -> void:
 	for obstacle in obstacles:
 		if not is_instance_valid(obstacle):
 			continue
-		if global_position.distance_to(obstacle.global_position) <= 18.0:
-			obstacle.take_damage(run_manager.weapon_manager.get_damage_for_projectile(weapon_data))
+		var obstacle_hit_radius: float = 18.0
+		if obstacle.has_method("get_projectile_hit_radius"):
+			obstacle_hit_radius = float(obstacle.call("get_projectile_hit_radius"))
+		if global_position.distance_to(obstacle.global_position) <= obstacle_hit_radius:
+			obstacle.take_damage(run_manager.weapon_manager.get_damage_for_target(weapon_data, obstacle))
 			queue_free()
 			return
+	var cache_hit_radius: float = 26.0
+	var nearest_cache: Node2D = run_manager.armoury_cache_manager.get_target_cache(global_position, 64.0, global_position, true)
+	if nearest_cache != null and nearest_cache.has_method("get_projectile_hit_radius"):
+		cache_hit_radius = float(nearest_cache.call("get_projectile_hit_radius"))
+	var cache: Node2D = run_manager.armoury_cache_manager.find_cache_at_position(global_position, cache_hit_radius)
+	if cache != null and is_instance_valid(cache):
+		cache.take_damage(run_manager.weapon_manager.get_damage_for_target(weapon_data, cache), splash_radius > 0.0)
+		queue_free()
+		return
 	var gate: Node2D = run_manager.gate_manager.find_gate_at_position(global_position, 30.0)
 	if gate != null and is_instance_valid(gate):
-		gate.take_damage(run_manager.weapon_manager.get_damage_for_projectile(weapon_data), false)
+		gate.take_damage(run_manager.weapon_manager.get_damage_for_target(weapon_data, gate), false)
+		queue_free()
+		return
+	var rescue_hit_radius: float = 30.0
+	var nearest_rescue: Node2D = run_manager.survivor_rescue_manager.get_target_rescue(global_position, 64.0, global_position, true)
+	if nearest_rescue != null and nearest_rescue.has_method("get_projectile_hit_radius"):
+		rescue_hit_radius = float(nearest_rescue.call("get_projectile_hit_radius"))
+	var rescue: Node2D = run_manager.survivor_rescue_manager.find_rescue_at_position(global_position, rescue_hit_radius)
+	if rescue != null and is_instance_valid(rescue):
+		rescue.take_damage(run_manager.weapon_manager.get_damage_for_target(weapon_data, rescue), splash_radius > 0.0)
 		queue_free()
 		return
 	if alive_time >= max_time or position.y < -80 or position.y > 1400:
@@ -51,16 +76,10 @@ func _process(delta: float) -> void:
 
 func _hit_enemy(enemy: Node) -> void:
 	hits_done += 1
-	var damage: float = run_manager.weapon_manager.get_damage_for_projectile(weapon_data)
+	hit_targets.append(enemy.get_instance_id())
+	var damage: float = run_manager.weapon_manager.get_damage_for_target(weapon_data, enemy)
 	enemy.take_damage(damage, splash_radius > 0.0)
-	if splash_radius > 0.0:
-		for nearby in run_manager.enemy_manager.enemies:
-			if nearby == enemy or not is_instance_valid(nearby):
-				continue
-			if nearby.global_position.distance_to(enemy.global_position) <= splash_radius:
-				nearby.take_damage(damage * 0.5, false)
-		run_manager.ui_manager.spawn_explosion(enemy.global_position, splash_radius)
-		AudioManager.play_sfx("explosion")
+	run_manager.weapon_manager._apply_post_hit_effects(weapon_data, enemy, damage)
 
 func _draw() -> void:
 	var splash := float(weapon_data.get("splash_radius", 0.0))
@@ -69,6 +88,10 @@ func _draw() -> void:
 	var color: Color = Color("ffd966")
 	if splash > 0.0:
 		color = Color("ff9655")
+	elif String(weapon_data.get("special_ammo_type", "")) == "incendiary":
+		color = Color("ff7b5a")
+	elif String(weapon_data.get("special_ammo_type", "")) == "heavy":
+		color = Color("d8d2c4")
 	elif speed > 600.0:
 		color = Color("90f4ff")
 	draw_circle(Vector2.ZERO, radius, color)

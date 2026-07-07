@@ -43,7 +43,8 @@ func take_damage(_amount: float, _explosive_hit: bool = false) -> void:
 	if collected:
 		return
 	var damage: float = max(_amount, 0.0)
-	var step_damage: float = max(float(effect_definition.get("damage_per_value_step", GameManager.gate_data.get("damage_per_value_step", 12.0))), 0.01)
+	var step_damage: float = gate_manager.get_damage_per_value_step(effect_definition)
+	effect_definition["damage_per_value_step"] = step_damage
 	damage_progress += damage
 	var improved := false
 	while damage_progress >= step_damage:
@@ -88,6 +89,11 @@ func _draw() -> void:
 	draw_rect(Rect2(-38, -56, 8, 112), outline)
 	draw_rect(Rect2(30, -56, 8, 112), outline)
 	draw_circle(Vector2.ZERO, 18.0 + sin(pulse) * 3.0, Color(base_color, 0.25))
+	var step_damage: float = max(0.01, gate_manager.get_damage_per_value_step(effect_definition))
+	var progress_ratio: float = clampf(damage_progress / step_damage, 0.0, 1.0)
+	draw_rect(Rect2(-34, 34, 68, 10), Color(0.08, 0.08, 0.08, 0.75))
+	draw_rect(Rect2(-34, 34, 68.0 * progress_ratio, 10), Color.WHITE if progress_ratio >= 0.98 else outline)
+	draw_rect(Rect2(-34, 34, 68, 10), outline, false, 2.0)
 	draw_string(ThemeDB.fallback_font, Vector2(-44, -70), _format_value_label(), HORIZONTAL_ALIGNMENT_LEFT, 96, 18, Color.WHITE)
 
 func _format_value_label() -> String:
@@ -100,11 +106,13 @@ func _apply_improvement_step() -> bool:
 	var gate_type: String = String(effect_definition.get("type", ""))
 	match gate_type:
 		"add_soldiers":
-			effect_definition["value"] = int(effect_definition.get("value", 0)) + int(effect_definition.get("improvement_step", 1))
+			var previous_value: int = int(effect_definition.get("value", 0))
+			var next_positive: int = int(effect_definition.get("value", 0)) + int(effect_definition.get("improvement_step", 1))
+			effect_definition["value"] = mini(next_positive, int(GameManager.gate_data.get("max_value", 12)))
 			current_value = int(effect_definition["value"])
 			effect_definition["start_value"] = current_value
 			effect_definition["label"] = gate_manager.format_gate_label(effect_definition)
-			return true
+			return current_value > previous_value
 		"remove_soldiers":
 			var next_value: int = max(0, int(effect_definition.get("value", 0)) - int(effect_definition.get("improvement_step", 1)))
 			if next_value == int(effect_definition.get("value", 0)):

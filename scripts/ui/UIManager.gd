@@ -6,9 +6,14 @@ class_name UIManager
 @onready var squad_label: Label = $HUD/Margin/VBox/Squad
 @onready var coins_label: Label = $HUD/Margin/VBox/Coins
 @onready var wave_label: Label = $HUD/Margin/VBox/Wave
+@onready var route_label: Label = $HUD/Margin/VBox/Route
+@onready var pressure_label: Label = $HUD/Margin/VBox/Pressure
+@onready var pressure_bar: ProgressBar = $HUD/Margin/VBox/PressureBar
+@onready var mutation_label: Label = $HUD/Margin/VBox/Mutation
 @onready var objective_label: Label = $HUD/Margin/VBox/Objective
 @onready var barricade_label: Label = $HUD/Margin/VBox/Barricade
 @onready var weapon_label: Label = $HUD/Margin/VBox/Weapon
+@onready var special_ammo_label: Label = $HUD/Margin/VBox/SpecialAmmo
 @onready var popup_layer: Control = $PopupLayer
 @onready var hit_flash: ColorRect = $HitFlash
 @onready var pause_panel: Panel = $PausePanel
@@ -20,6 +25,10 @@ class_name UIManager
 @onready var end_replay: Button = $EndPanel/VBox/Replay
 @onready var end_upgrade: Button = $EndPanel/VBox/Upgrade
 @onready var end_menu: Button = $EndPanel/VBox/Menu
+@onready var post_boss_panel: Panel = $PostBossPanel
+@onready var post_boss_title: Label = $PostBossPanel/Margin/VBox/Title
+@onready var post_boss_summary: Label = $PostBossPanel/Margin/VBox/Summary
+@onready var post_boss_buttons: VBoxContainer = $PostBossPanel/Margin/VBox/Buttons
 
 var run_manager: Node
 
@@ -31,14 +40,22 @@ func setup(run: Node) -> void:
 	run_manager.distance_changed.connect(_on_distance_changed)
 	run_manager.wave_changed.connect(_on_wave_changed)
 	run_manager.squad_changed.connect(_on_squad_changed)
+	run_manager.mutation_changed.connect(_on_mutation_changed)
+	run_manager.pressure_changed.connect(_on_pressure_changed)
 	run_manager.run_ended.connect(_on_run_ended)
+	run_manager.post_boss_choice_opened.connect(show_post_boss_choice)
+	run_manager.post_boss_choice_closed.connect(_on_post_boss_choice_closed)
 	_on_coins_changed(run_manager.coins)
 	_on_distance_changed(run_manager.distance_travelled)
 	_on_wave_changed(run_manager.current_wave)
 	_on_squad_changed(run_manager.squad_manager.get_soldier_count())
+	_on_mutation_changed(run_manager.mutation_manager.get_active_mutation_state())
+	_on_pressure_changed(run_manager.get_pressure_state())
+	_update_route_label()
 	_update_objective()
 	pause_panel.visible = false
 	end_panel.visible = false
+	post_boss_panel.visible = false
 	hit_flash.modulate.a = 0.0
 	if not pause_resume.pressed.is_connected(_on_pause_resume):
 		pause_resume.pressed.connect(_on_pause_resume)
@@ -60,6 +77,16 @@ func _process(delta: float) -> void:
 		else:
 			barricade_label.text += " | %d/%d HP" % [int(barricade.hp), int(barricade.max_hp)]
 		weapon_label.text = "Weapon: %s%s" % [run_manager.weapon_manager.get_current_weapon_id().replace("_", " ").capitalize(), " | Auto" if bool(SaveManager.save_data.get("settings", {}).get("auto_fire", false)) else ""]
+		var ammo_state: Dictionary = run_manager.weapon_manager.get_special_ammo_state()
+		if String(ammo_state.get("type", "")) == "":
+			special_ammo_label.visible = false
+			special_ammo_label.text = ""
+		else:
+			special_ammo_label.visible = true
+			special_ammo_label.text = "Ammo: %s | %.1fs" % [String(ammo_state.get("label", "SPECIAL")), float(ammo_state.get("time_remaining", 0.0))]
+		_update_pressure_visuals()
+		_update_mutation_label()
+		_update_route_label()
 		_update_objective()
 
 func _on_coins_changed(value: int) -> void:
@@ -72,9 +99,79 @@ func _on_distance_changed(value: float) -> void:
 func _on_wave_changed(value: int) -> void:
 	wave_label.text = "Wave: %d" % value
 
+func _update_route_label() -> void:
+	if run_manager == null:
+		route_label.visible = false
+		return
+	var route_state: Dictionary = run_manager.get_route_status_state()
+	if not bool(route_state.get("active", false)):
+		route_label.visible = false
+		route_label.text = ""
+		return
+	route_label.visible = true
+	var reward_multiplier: float = float(route_state.get("reward_multiplier", 1.0))
+	var suffix: String = " | x%.2f coins" % reward_multiplier if reward_multiplier > 1.0 else ""
+	route_label.text = "Route: %s%s" % [String(route_state.get("title", "Extended Route")), suffix]
+
 func _on_squad_changed(value: int) -> void:
 	squad_label.text = "Squad: %d" % value
 	_pulse_label(squad_label, Color("7be495"))
+
+func _on_mutation_changed(_state: Dictionary) -> void:
+	_update_mutation_label()
+
+func _on_pressure_changed(state: Dictionary) -> void:
+	if not bool(state.get("enabled", false)):
+		pressure_label.visible = false
+		pressure_bar.visible = false
+		return
+	pressure_label.visible = true
+	pressure_bar.visible = true
+	pressure_bar.max_value = float(state.get("max_value", 100.0))
+	pressure_bar.value = float(state.get("value", 0.0))
+	var reward_multiplier: float = float(state.get("reward_multiplier", 1.0))
+	var reward_suffix: String = " | x%.2f coins" % reward_multiplier if reward_multiplier > 1.0 else ""
+	pressure_label.text = "Horde Pressure: %s%s" % [String(state.get("label", "Low")), reward_suffix]
+	_update_pressure_visuals()
+
+func _update_mutation_label() -> void:
+	var mutation_state: Dictionary = run_manager.mutation_manager.get_active_mutation_state() if run_manager != null and run_manager.mutation_manager != null else {}
+	var mutation_id: String = String(mutation_state.get("id", ""))
+	if mutation_id == "":
+		mutation_label.visible = false
+		mutation_label.text = ""
+		return
+	mutation_label.visible = true
+	var reward_multiplier: float = float(mutation_state.get("reward_multiplier", 1.0))
+	var reward_suffix: String = " | x%.2f coins" % reward_multiplier if reward_multiplier > 1.0 else ""
+	mutation_label.text = "Mutation: %s | %.1fs%s" % [
+		String(mutation_state.get("label", mutation_id)),
+		float(mutation_state.get("time_remaining", 0.0)),
+		reward_suffix
+	]
+
+func _update_pressure_visuals() -> void:
+	if run_manager == null or not run_manager.is_horde_pressure_enabled():
+		return
+	var tier: String = run_manager.get_pressure_tier()
+	var pulse_strength: float = 0.0
+	var bar_color := Color("9bd4ff")
+	match tier:
+		"medium":
+			bar_color = Color("ffd166")
+		"high":
+			bar_color = Color("ff9f5c")
+			pulse_strength = 0.18
+		"surge":
+			bar_color = Color("ff6b6b")
+			pulse_strength = 0.32
+	if pulse_strength > 0.0:
+		var pulse: float = 0.82 + absf(sin(Time.get_ticks_msec() / 140.0)) * pulse_strength
+		pressure_label.modulate = bar_color.lerp(Color.WHITE, clampf(1.0 - pulse, 0.0, 1.0))
+		pressure_bar.modulate = Color(1.0, 1.0, 1.0, clampf(pulse, 0.0, 1.0))
+	else:
+		pressure_label.modulate = bar_color
+		pressure_bar.modulate = Color.WHITE
 
 func _update_objective() -> void:
 	var missions := MissionManager.get_mission_rows()
@@ -118,6 +215,8 @@ func spawn_reward_popup(world_position: Vector2, text: String, color: Color) -> 
 		_pulse_label(squad_label, color)
 	elif text.find("WEAPON") >= 0:
 		_pulse_label(weapon_label, color)
+	elif text.find("ROUNDS") >= 0:
+		_pulse_label(special_ammo_label, color)
 	elif text.find("BARRICADE") >= 0:
 		_pulse_label(barricade_label, color)
 
@@ -147,9 +246,10 @@ func spawn_explosion(world_position: Vector2, radius: float) -> void:
 func show_status_message(text: String, color: Color = Color.WHITE) -> void:
 	var label := Label.new()
 	label.text = text
-	label.position = Vector2(240.0, 96.0)
-	label.size = Vector2(240.0, 32.0)
+	label.position = Vector2(150.0, 96.0)
+	label.size = Vector2(420.0, 40.0)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	label.add_theme_font_size_override("font_size", 22)
 	label.modulate = color
 	popup_layer.add_child(label)
@@ -159,15 +259,53 @@ func show_status_message(text: String, color: Color = Color.WHITE) -> void:
 	tween.finished.connect(label.queue_free)
 
 func toggle_pause() -> void:
+	if post_boss_panel.visible:
+		return
 	var paused := not get_tree().paused
 	get_tree().paused = paused
 	pause_panel.visible = paused
 
+func show_post_boss_choice(options: Array) -> void:
+	post_boss_panel.visible = true
+	pause_panel.visible = false
+	end_panel.visible = false
+	post_boss_title.text = "Boss Down. Pick The Next Route."
+	post_boss_summary.text = "Extract now to bank the run, or push the convoy deeper for a stronger route bonus."
+	for child in post_boss_buttons.get_children():
+		child.queue_free()
+	var first_button: Button
+	for option in options:
+		var button := Button.new()
+		button.custom_minimum_size = Vector2(0.0, 68.0)
+		button.focus_mode = Control.FOCUS_ALL
+		button.add_theme_font_size_override("font_size", 18)
+		button.text = "%s\n%s" % [String(option.get("title", "")), String(option.get("description", ""))]
+		button.add_theme_color_override("font_color", Color(String(option.get("button_color", "#ffffff"))))
+		button.pressed.connect(func() -> void:
+			_on_post_boss_choice_pressed(String(option.get("id", "")))
+		)
+		post_boss_buttons.add_child(button)
+		if first_button == null:
+			first_button = button
+	if first_button != null:
+		first_button.grab_focus()
+
+func _on_post_boss_choice_pressed(choice_id: String) -> void:
+	if run_manager != null:
+		run_manager.select_post_boss_route(choice_id)
+
+func _on_post_boss_choice_closed(_state: Dictionary) -> void:
+	post_boss_panel.visible = false
+
 func show_end_screen(victory: bool, summary: Dictionary) -> void:
 	get_tree().paused = false
+	post_boss_panel.visible = false
 	end_panel.visible = true
 	end_title.text = "Run Complete" if victory else "Game Over"
-	end_summary.text = "Distance %dm\nKills %d\nCoins %d\nSquad %d" % [summary["distance"], summary["kills"], summary["coins_earned"], summary["final_soldiers"]]
+	var route_line := ""
+	if String(summary.get("route_choice", "")) != "":
+		route_line = "\nRoute %s | x%.2f coins" % [String(summary.get("route_choice", "")), float(summary.get("route_reward_multiplier", 1.0))]
+	end_summary.text = "Distance %dm\nKills %d\nCoins %d\nSquad %d%s" % [summary["distance"], summary["kills"], summary["coins_earned"], summary["final_soldiers"], route_line]
 
 func _on_run_ended(victory: bool) -> void:
 	pass

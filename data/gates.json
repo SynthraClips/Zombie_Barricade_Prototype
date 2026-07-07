@@ -2,7 +2,12 @@
   "spawn_distance_interval": 32.0,
   "spawn_start_distance": 18.0,
   "spawn_y": -150.0,
-  "damage_per_value_step": 6.0,
+  "damage_per_value_step": 30.0,
+  "damage_per_value_step_by_distance": [
+    {"distance": 0.0, "damage_per_value_step": 30.0},
+    {"distance": 160.0, "damage_per_value_step": 45.0},
+    {"distance": 320.0, "damage_per_value_step": 60.0}
+  ],
   "fallback_row_gate_count": 2,
   "start_values": [-2, 1, -1, 2, -3, 3],
   "rows": [

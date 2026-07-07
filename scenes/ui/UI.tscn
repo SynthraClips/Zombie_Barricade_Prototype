@@ -43,6 +43,34 @@ layout_mode = 2
 theme_override_font_sizes/font_size = 22
 text = "Wave"
 
+[node name="Route" type="Label" parent="HUD/Margin/VBox"]
+visible = false
+layout_mode = 2
+custom_minimum_size = Vector2(0, 40)
+autowrap_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Route"
+
+[node name="Pressure" type="Label" parent="HUD/Margin/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "Horde Pressure"
+
+[node name="PressureBar" type="ProgressBar" parent="HUD/Margin/VBox"]
+custom_minimum_size = Vector2(0, 18)
+layout_mode = 2
+show_percentage = false
+max_value = 100.0
+value = 0.0
+
+[node name="Mutation" type="Label" parent="HUD/Margin/VBox"]
+visible = false
+layout_mode = 2
+custom_minimum_size = Vector2(0, 44)
+autowrap_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Mutation"
+
 [node name="Objective" type="Label" parent="HUD/Margin/VBox"]
 layout_mode = 2
 custom_minimum_size = Vector2(0, 96)
@@ -59,6 +87,12 @@ text = "Barricade"
 layout_mode = 2
 theme_override_font_sizes/font_size = 20
 text = "Weapon"
+
+[node name="SpecialAmmo" type="Label" parent="HUD/Margin/VBox"]
+visible = false
+layout_mode = 2
+theme_override_font_sizes/font_size = 19
+text = "Ammo"
 
 [node name="PopupLayer" type="Control" parent="."]
 layout_mode = 3
@@ -160,3 +194,49 @@ text = "Upgrade"
 [node name="Menu" type="Button" parent="EndPanel/VBox"]
 layout_mode = 2
 text = "Main Menu"
+
+[node name="PostBossPanel" type="Panel" parent="."]
+visible = false
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -260.0
+offset_top = -180.0
+offset_right = 260.0
+offset_bottom = 210.0
+
+[node name="Margin" type="MarginContainer" parent="PostBossPanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 16.0
+offset_top = 16.0
+offset_right = -16.0
+offset_bottom = -16.0
+
+[node name="VBox" type="VBoxContainer" parent="PostBossPanel/Margin"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 12
+
+[node name="Title" type="Label" parent="PostBossPanel/Margin/VBox"]
+layout_mode = 2
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 28
+text = "Boss Down"
+
+[node name="Summary" type="Label" parent="PostBossPanel/Margin/VBox"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 64)
+horizontal_alignment = 1
+autowrap_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Pick the next route."
+
+[node name="Buttons" type="VBoxContainer" parent="PostBossPanel/Margin/VBox"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 10

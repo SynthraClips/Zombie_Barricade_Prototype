@@ -71,6 +71,7 @@ func _default_save_data() -> Dictionary:
 			"coins_collected": 0,
 			"soldiers_rescued": 0,
 			"barricades_deployed": 0,
+			"armoury_caches_destroyed": 0,
 			"runs_completed": 0
 		}
 	}

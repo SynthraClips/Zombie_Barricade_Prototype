@@ -93,6 +93,10 @@ func _draw() -> void:
 			draw_circle(Vector2(0, -10), 5.0, Color.WHITE)
 		"weapon_pickup":
 			draw_rect(Rect2(-9, -7, 18, 14), Color("2f2a3b"))
+		"special_ammo":
+			draw_line(Vector2(-7, 6), Vector2(0, -10), Color.WHITE, 3.0)
+			draw_line(Vector2(0, -10), Vector2(7, 6), Color.WHITE, 3.0)
+			draw_circle(Vector2.ZERO, 4.0 * display_scale, Color("2d1e12"))
 		"barricade_repair", "barricade_cooldown_reset":
 			draw_rect(Rect2(-10, -10, 20, 20), Color("4b5b73"))
 		"fire_rate_boost":

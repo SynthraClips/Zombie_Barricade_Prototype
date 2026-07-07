@@ -17,7 +17,7 @@ func setup(run: Node) -> void:
 	selected_barricade_id = GameManager.get_starting_barricade_id()
 	deploy_cooldown = 0.0
 	active_barricade = null
-	deploy_current_barricade()
+	deploy_current_barricade(false)
 
 func update_barricade(delta: float) -> void:
 	deploy_cooldown = max(deploy_cooldown - delta, 0.0)
@@ -27,7 +27,7 @@ func update_barricade(delta: float) -> void:
 			if is_instance_valid(enemy):
 				active_barricade.apply_zone_effect(enemy, delta)
 
-func deploy_current_barricade() -> bool:
+func deploy_current_barricade(apply_pressure_relief: bool = true) -> bool:
 	if deploy_cooldown > 0.0:
 		return false
 	if active_barricade != null and is_instance_valid(active_barricade):
@@ -39,6 +39,8 @@ func deploy_current_barricade() -> bool:
 	deploy_cooldown = _get_deploy_cooldown_for(selected_barricade_id)
 	SaveManager.save_data["stats"]["barricades_deployed"] += 1
 	MissionManager.increment_progress("barricades_deployed", 1)
+	if apply_pressure_relief:
+		run_manager.reduce_horde_pressure_for("barricade_deployed")
 	run_manager.ui_manager.show_status_message("%s DEPLOYED" % String(GameManager.barricade_data.get(selected_barricade_id, {}).get("name", "Barricade")).to_upper(), Color("9bd4ff"))
 	return true
 

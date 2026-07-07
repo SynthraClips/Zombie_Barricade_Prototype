@@ -1,8 +1,8 @@
 # Zombie Barricade Prototype Validation Report
 
-- Date: 2026-07-07T11:43:00
-- Passed: 63
-- Failed: 0
+- Date: 2026-07-07T18:03:44
+- Passed: 130
+- Failed: 2
 
 - Zombie Barricade Prototype Validation
 
@@ -11,15 +11,19 @@
 - [PASS] Weapon data loads (6 entries)
 - [PASS] Barricade data loads (8 entries)
 - [PASS] Wave data loads 
+- [PASS] Mutation data loads 
 - [PASS] Reward data loads 
 - [PASS] Gate data loads 
 - [PASS] Mission data loads 
 - [PASS] Upgrade data loads 
 - [PASS] Wave enemy references are valid 
+- [PASS] Mutation references are valid 
 - [PASS] Reward and gate references are valid 
+- [PASS] Road object references are valid 
 - [PASS] Mission target types are valid 
 - [PASS] Upgrade costs and choice references are valid 
 - [PASS] Boss data is valid 
+- [PASS] Horde pressure config is valid 
 - [PASS] Main menu loads 
 - [PASS] Main menu buttons exist 
 - [PASS] Battlefield scene loads 
@@ -33,10 +37,31 @@
 - [PASS] Mission progress updates 
 - [PASS] Barricade blocks zombies 
 - [PASS] Barricade can be destroyed 
+- [PASS] Mutation can start during a run 
+- [PASS] HUD shows active mutation and timer 
+- [PASS] Only allowed mutations are selected 
+- [PASS] Mutation applies spawn weight modifier 
+- [PASS] Enemy spawning returns to normal after mutation 
+- [PASS] Mutation applies enemy stat modifier 
+- [PASS] Mutation expiry resets enemy stats 
+- [PASS] Mutation expires 
+- [PASS] HUD clears after mutation expires 
+- [PASS] Mutation state clears on run reset/game over 
+- [PASS] Horde pressure starts from config value 
+- [PASS] HUD shows horde pressure 
+- [PASS] Horde pressure increases during a run 
+- [PASS] Horde pressure increases runner spawn weight 
+- [PASS] Horde pressure increases reward multiplier 
+- [PASS] Successful events can reduce horde pressure 
+- [PASS] Horde pressure clears on reset/game over 
 - [PASS] Squad follows mouse X position 
 - [PASS] Squad remains clamped inside road bounds 
 - [PASS] Multiple gates can spawn in one row 
+- [PASS] Gate value does not increase from tiny damage if below threshold 
 - [PASS] Projectile damage can improve gates 
+- [PASS] Later gates can require more damage to improve 
+- [PASS] Stronger projectile damage improves gates faster 
+- [PASS] Gate value does not exceed max value 
 - [PASS] Positive soldier gate adds soldiers 
 - [PASS] Choosing one gate clears the row 
 - [PASS] Negative gate removes soldiers but not below 1 
@@ -46,7 +71,45 @@
 - [PASS] Pickup collects and disappears 
 - [PASS] Pickup manager has no stale references after collection 
 - [PASS] Pickup cannot be collected twice 
-- [PASS] Boss collectible extends run distance 
+- [PASS] Normal soldier add respects max squad limit if appropriate 
+- [PASS] Soldier pickup can exceed max squad limit 
+- [PASS] Squad count HUD/state reflects overcap value 
+- [PASS] Removing soldiers from overcap works correctly 
+- [PASS] Run reset clears squad back to correct starting size 
+- [FAIL] Boss collectible extends run distance 
+- [PASS] Each road object type can spawn 
+- [PASS] Each road object type can be damaged 
+- [PASS] At least one road object type appears during normal runs 
+- [PASS] Fuel barrel damages nearby zombies 
+- [PASS] Road objects unregister on destruction 
+- [FAIL] Alarm car triggers extra zombies on timeout 
+- [PASS] Alarm car does not trigger if destroyed in time 
+- [PASS] Electric box applies stun/slow 
+- [PASS] Road objects clear on run reset 
+- [PASS] Each special ammo pickup can be applied 
+- [PASS] Repeated ammo pickup refreshes duration sensibly 
+- [PASS] Ammo state expires 
+- [PASS] HUD/state clears on expiry 
+- [PASS] Piercing rounds can hit extra enemies 
+- [PASS] Explosive rounds apply splash damage 
+- [PASS] Heavy rounds increase damage against gates/high-HP targets 
+- [PASS] Ammo state clears on run reset/game over 
+- [PASS] Armoury cache spawns 
+- [PASS] Armoury cache stops before barricade safe zone 
+- [PASS] Armoury cache is not collected by touch 
+- [PASS] Projectiles can damage armoury cache 
+- [PASS] Armoury cache rewards once when destroyed 
+- [PASS] Armoury cache does not double-reward on destruction 
+- [PASS] Armoury cache unregisters on destruction 
+- [PASS] Armoury cache does not reward on expiry 
+- [PASS] Armoury cache unregisters on expiry 
+- [PASS] Survivor rescue event can spawn 
+- [PASS] Survivor rescue stops before barricade safe zone 
+- [PASS] Survivor rescue is not collected by touch 
+- [PASS] Projectiles can damage survivor rescue 
+- [PASS] Survivor rescue success grants soldiers once 
+- [PASS] Survivor rescue cannot double-reward 
+- [PASS] Survivor rescue despawns on success 
 - [PASS] Manual fire stays idle when auto-fire is disabled 
 - [PASS] Hold-to-fire still works when auto-fire is disabled 
 - [PASS] Auto-fire does not fire while paused 
@@ -54,6 +117,12 @@
 - [PASS] Auto-fire does not fire after game over 
 - [PASS] Auto-fire does not break gate targeting 
 - [PASS] Auto-fire does not break obstacle targeting 
+- [PASS] Boss defeat opens route choice once 
+- [PASS] Extract Now ends and banks run once 
+- [PASS] Choice cannot be selected twice 
+- [PASS] Push Forward extends route and applies reward modifier 
+- [PASS] Push Forward increases difficulty 
+- [PASS] Route choice state clears on reset 
 - [PASS] Required barricade types exist 
 - [PASS] Each enemy type can spawn 
 - [PASS] Each barricade type can spawn 

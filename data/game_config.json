@@ -6,10 +6,50 @@
   "auto_fire_default": true,
   "starting_weapon": "rifle",
   "starting_barricade_tier": "wooden_wall",
-  "barricade_cooldown": 8.0,
-  "base_enemy_spawn_interval": 1.8,
-  "obstacle_spawn_interval": 3.4,
+  "barricade_cooldown": 8.6,
+  "base_enemy_spawn_interval": 1.72,
+  "obstacle_spawn_interval": 3.1,
   "boss_milestones": [200, 360],
+  "post_boss_routes": {
+    "extract_now": {
+      "title": "Extract Now",
+      "description": "End the run safely and bank the haul.",
+      "button_color": "#9ee3ff"
+    },
+    "push_forward": {
+      "title": "Push Forward",
+      "description": "Extend the route, harden the horde, and boost coin rewards.",
+      "button_color": "#ffcf61",
+      "extend_reward_id": "boss_relic",
+      "reward_multiplier": 1.25,
+      "difficulty_multiplier": 1.18,
+      "spawn_interval_multiplier": 0.88,
+      "runner_weight_multiplier": 1.18
+    },
+    "rescue_route": {
+      "title": "Rescue Route",
+      "description": "Push on with more rescue calls and soldier gate chances ahead.",
+      "button_color": "#7be495",
+      "extend_reward_id": "boss_relic",
+      "reward_multiplier": 1.1,
+      "rescue_spawn_chance_bonus": 0.3,
+      "rescue_spawn_distance_multiplier": 0.72,
+      "gate_spawn_distance_multiplier": 0.82
+    },
+    "supply_route": {
+      "title": "Supply Route",
+      "description": "Push on with more caches, weapon drops, and ammo opportunities.",
+      "button_color": "#d9a8ff",
+      "extend_reward_id": "boss_relic",
+      "reward_multiplier": 1.1,
+      "supply_spawn_chance_bonus": 0.32,
+      "supply_spawn_distance_multiplier": 0.72,
+      "armoury_cache_reward_table": "supply_route"
+    }
+  },
+  "post_boss_route_order": ["extract_now", "push_forward", "rescue_route", "supply_route"],
+  "allow_pickup_soldier_overcap": true,
+  "pickup_soldier_overcap_limit": 0,
   "temporary_boost_duration": 8.0,
   "temporary_shield_hp": 60,
   "pickup_magnet_radius": 140.0,
@@ -17,6 +57,183 @@
   "pickup_magnet_speed": 420.0,
   "crit_multiplier": 1.5,
   "run_coin_keep_ratio": 1.0,
+  "horde_pressure": {
+    "enabled": true,
+    "start_value": 0.0,
+    "max_pressure": 100.0,
+    "gain_per_second": 1.4,
+    "gain_per_distance": 0.08,
+    "thresholds": {
+      "medium": 30.0,
+      "high": 60.0,
+      "surge": 85.0
+    },
+    "warnings": {
+      "medium": "The horde is gaining!",
+      "high": "Pressure High!",
+      "surge": "Horde Surge!"
+    },
+    "spawn_interval_multiplier_at_max": 0.6,
+    "runner_weight_multiplier_at_max": 2.5,
+    "mutation_interval_scale_at_max": 0.7,
+    "reward_multiplier_at_max": 1.4,
+    "high_value_event_chance_bonus_at_max": 0.22,
+    "reduction_values": {
+      "boss_defeated": 28.0,
+      "barricade_deployed": 10.0,
+      "survivor_rescue_completed": 12.0,
+      "armoury_cache_destroyed": 10.0,
+      "special_event_completed": 8.0
+    }
+  },
+  "special_ammo": {
+    "piercing": {
+      "label": "Piercing Rounds",
+      "duration": 10.0,
+      "damage_multiplier": 1.0,
+      "pierce_count": 1,
+      "splash_radius": 0.0,
+      "burn_duration": 0.0,
+      "burn_damage": 0.0,
+      "object_damage_multiplier": 1.0
+    },
+    "incendiary": {
+      "label": "Incendiary Rounds",
+      "duration": 10.0,
+      "damage_multiplier": 1.0,
+      "pierce_count": 0,
+      "splash_radius": 0.0,
+      "burn_duration": 3.0,
+      "burn_damage": 4.0,
+      "object_damage_multiplier": 1.0
+    },
+    "explosive": {
+      "label": "Explosive Rounds",
+      "duration": 9.0,
+      "damage_multiplier": 1.0,
+      "pierce_count": 0,
+      "splash_radius": 42.0,
+      "burn_duration": 0.0,
+      "burn_damage": 0.0,
+      "object_damage_multiplier": 1.0
+    },
+    "heavy": {
+      "label": "Heavy Rounds",
+      "duration": 10.0,
+      "damage_multiplier": 1.15,
+      "pierce_count": 0,
+      "splash_radius": 0.0,
+      "burn_duration": 0.0,
+      "burn_damage": 0.0,
+      "object_damage_multiplier": 1.8
+    }
+  },
+  "armoury_cache": {
+    "enabled": true,
+    "spawn_start_distance": 72.0,
+    "spawn_distance_interval": 118.0,
+    "spawn_chance": 0.4,
+    "hp": 180.0,
+    "timer_duration": 8.0,
+    "hold_y": 760.0,
+    "move_speed": 155.0,
+    "safe_zone_margin": 84.0,
+    "reward_table": "default",
+    "max_active": 1,
+    "spawn_lane_padding": 72.0,
+    "spawn_y": -190.0
+  },
+  "survivor_rescue": {
+    "enabled": true,
+    "spawn_start_distance": 48.0,
+    "spawn_distance_interval": 88.0,
+    "spawn_chance": 0.25,
+    "hp": 26.0,
+    "timer_duration": 6.5,
+    "hold_y": 774.0,
+    "move_speed": 150.0,
+    "safe_zone_margin": 96.0,
+    "soldiers_reward": 3,
+    "coin_reward": 0,
+    "max_active": 1,
+    "spawn_lane_padding": 82.0,
+    "spawn_y": -180.0,
+    "projectile_hit_radius": 38.0,
+    "rescue_label": "Survivors Trapped",
+    "obstruction_label": "Car Wreck"
+  },
+  "road_objects": {
+    "spawn_pool": [
+      {"type": "barrel", "weight": 1.0},
+      {"type": "crate", "weight": 1.0},
+      {"type": "fuel_barrel", "weight": 1.3},
+      {"type": "abandoned_car", "weight": 0.95},
+      {"type": "alarm_car", "weight": 0.6},
+      {"type": "electric_box", "weight": 0.75}
+    ],
+    "definitions": {
+      "fuel_barrel": {
+        "label": "Fuel Barrel",
+        "hp": 22.0,
+        "reward_id": "",
+        "draw_style": "fuel_barrel",
+        "base_color": "#b54d36",
+        "accent_color": "#ffcf61",
+        "outline_color": "#2a2220",
+        "destroy_effect": "explosion",
+        "explosion_radius": 92.0,
+        "explosion_damage": 32.0,
+        "destroy_message": "Boom!",
+        "destroy_color": "#ffb266",
+        "projectile_hit_radius": 18.0
+      },
+      "abandoned_car": {
+        "label": "Abandoned Car",
+        "hp": 95.0,
+        "reward_id": "coins_large",
+        "draw_style": "car",
+        "base_color": "#5f646b",
+        "accent_color": "#9ca3ad",
+        "outline_color": "#23272d",
+        "destroy_message": "Object Destroyed",
+        "destroy_color": "#ffd98f",
+        "projectile_hit_radius": 30.0
+      },
+      "alarm_car": {
+        "label": "Alarm Car",
+        "hp": 54.0,
+        "reward_id": "coins_large",
+        "draw_style": "alarm_car",
+        "base_color": "#8c3f3f",
+        "accent_color": "#c6cbd1",
+        "outline_color": "#20242a",
+        "timer_duration": 4.0,
+        "timer_effect": "alarm_wave",
+        "destroy_effect": "alarm_stopped",
+        "alarm_spawn_count": 3,
+        "alarm_spawn_pool": ["runner", "runner", "exploder"],
+        "destroy_message": "Alarm Stopped",
+        "destroy_color": "#7be495",
+        "projectile_hit_radius": 28.0
+      },
+      "electric_box": {
+        "label": "Electric Box",
+        "hp": 28.0,
+        "reward_id": "",
+        "draw_style": "electric_box",
+        "base_color": "#46657d",
+        "accent_color": "#9ee7ff",
+        "outline_color": "#1e2b36",
+        "destroy_effect": "stun",
+        "stun_radius": 104.0,
+        "stun_amount": 1.0,
+        "stun_duration": 2.2,
+        "destroy_message": "Zombies Stunned",
+        "destroy_color": "#8ee4ff",
+        "projectile_hit_radius": 22.0
+      }
+    }
+  },
   "soldier_roles": {
     "rifleman": {
       "name": "Rifleman",

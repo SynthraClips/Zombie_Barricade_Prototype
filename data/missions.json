@@ -9,6 +9,7 @@
     {"id": "unlock_metal_wall", "title": "Stronger Cover", "description": "Unlock Metal Wall.", "target_type": "unlock_barricade", "target_value": 1, "reward": {"coins": 60}, "completed": false},
     {"id": "defeat_first_boss", "title": "Break the Brute", "description": "Defeat your first boss.", "target_type": "boss_kills", "target_value": 1, "reward": {"coins": 80}, "completed": false},
     {"id": "deploy_12_barricades", "title": "Hold the Line", "description": "Deploy barricades 12 times.", "target_type": "barricades_deployed", "target_value": 12, "reward": {"coins": 70}, "completed": false},
-    {"id": "finish_with_6_soldiers", "title": "Full Line", "description": "Finish a run with 6 soldiers.", "target_type": "finish_with_soldiers", "target_value": 6, "reward": {"coins": 90}, "completed": false}
+    {"id": "finish_with_6_soldiers", "title": "Full Line", "description": "Finish a run with 6 soldiers.", "target_type": "finish_with_soldiers", "target_value": 6, "reward": {"coins": 90}, "completed": false},
+    {"id": "secure_3_armoury_caches", "title": "Supply Seizure", "description": "Destroy 3 Armoury Caches before they lock down.", "target_type": "armoury_caches_destroyed", "target_value": 3, "reward": {"coins": 110}, "completed": false}
   ]
 }

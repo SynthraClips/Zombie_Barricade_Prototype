@@ -29,7 +29,7 @@ func update_gates(delta: float) -> void:
 		return
 	elif run_manager.distance_travelled >= next_spawn_distance:
 		_spawn_next_gate_row()
-		next_spawn_distance += float(GameManager.gate_data.get("spawn_distance_interval", 32.0))
+		next_spawn_distance += float(GameManager.gate_data.get("spawn_distance_interval", 32.0)) * run_manager.get_route_gate_spawn_distance_multiplier()
 
 func spawn_gate(start_value: int) -> Node2D:
 	return spawn_gate_row([{"type": "add_soldiers" if start_value >= 0 else "remove_soldiers", "value": abs(start_value) if start_value < 0 else start_value, "start_value": start_value}])[0]
@@ -194,12 +194,21 @@ func _normalize_gate_effect(effect: Dictionary) -> Dictionary:
 	if not normalized.has("improvement_step"):
 		normalized["improvement_step"] = _default_improvement_step(normalized)
 	if not normalized.has("damage_per_value_step"):
-		normalized["damage_per_value_step"] = float(GameManager.gate_data.get("damage_per_value_step", 12.0))
+		normalized["damage_per_value_step"] = get_damage_per_value_step(normalized)
 	if not normalized.has("label"):
 		normalized["label"] = _format_gate_label_normalized(normalized)
 	if not normalized.has("color"):
 		normalized["color"] = _color_for_gate(normalized)
 	return normalized
+
+func get_damage_per_value_step(effect: Dictionary) -> float:
+	if effect.has("damage_per_value_step"):
+		return max(0.01, float(effect.get("damage_per_value_step", 0.01)))
+	var resolved: float = float(GameManager.gate_data.get("damage_per_value_step", 12.0))
+	for entry in GameManager.gate_data.get("damage_per_value_step_by_distance", []):
+		if float(run_manager.distance_travelled) >= float(entry.get("distance", 0.0)):
+			resolved = float(entry.get("damage_per_value_step", resolved))
+	return max(0.01, resolved)
 
 func _compute_display_start_value(effect: Dictionary) -> int:
 	match String(effect.get("type", "")):

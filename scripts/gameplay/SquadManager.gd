@@ -58,8 +58,8 @@ func update_squad(delta: float) -> void:
 	for soldier in soldiers:
 		soldier.update_soldier(delta)
 
-func add_soldier(role_id: String = "rifleman") -> bool:
-	if soldiers.size() >= run_manager.max_squad_size:
+func add_soldier(role_id: String = "rifleman", allow_overcap: bool = false, overcap_limit: int = -1) -> bool:
+	if not _can_add_soldier(allow_overcap, overcap_limit):
 		return false
 	var soldier: Node = soldier_scene.instantiate()
 	add_child(soldier)
@@ -69,10 +69,10 @@ func add_soldier(role_id: String = "rifleman") -> bool:
 	run_manager.on_squad_count_changed()
 	return true
 
-func add_soldiers(amount: int) -> int:
+func add_soldiers(amount: int, allow_overcap: bool = false, overcap_limit: int = -1) -> int:
 	var added := 0
 	for index in amount:
-		if add_soldier():
+		if add_soldier("rifleman", allow_overcap, overcap_limit):
 			added += 1
 	if added > 0:
 		SaveManager.save_data["stats"]["soldiers_rescued"] += added
@@ -191,6 +191,18 @@ func get_primary_target_for(soldier_position: Vector2, weapon_range: float) -> N
 		if obstacle_score < best_score:
 			best_score = obstacle_score
 			best_target = obstacle
+	var cache: Node2D = run_manager.armoury_cache_manager.get_target_cache(soldier_position, INF if auto_fire_enabled else weapon_range, Vector2.ZERO if auto_fire_enabled else aim_position, auto_fire_enabled)
+	if cache != null:
+		var cache_score: float = soldier_position.distance_to(cache.global_position) if auto_fire_enabled else cache.global_position.distance_to(aim_position)
+		if (not auto_fire_enabled and cache_score < best_score) or (auto_fire_enabled and best_target == null):
+			best_target = cache
+			best_score = cache_score
+	var rescue: Node2D = run_manager.survivor_rescue_manager.get_target_rescue(soldier_position, INF if auto_fire_enabled else weapon_range, Vector2.ZERO if auto_fire_enabled else aim_position, auto_fire_enabled)
+	if rescue != null:
+		var rescue_score: float = soldier_position.distance_to(rescue.global_position) if auto_fire_enabled else rescue.global_position.distance_to(aim_position)
+		if (not auto_fire_enabled and rescue_score < best_score) or (auto_fire_enabled and best_target == null):
+			best_target = rescue
+			best_score = rescue_score
 	if best_target != null and (auto_fire_enabled or best_score <= 110.0):
 		return best_target
 	return null
@@ -238,6 +250,13 @@ func apply_reward_boost(reward_type: String, value: float) -> void:
 
 func heal_soldiers(amount: int) -> int:
 	return add_soldiers(amount)
+
+func _can_add_soldier(allow_overcap: bool, overcap_limit: int) -> bool:
+	if not allow_overcap:
+		return soldiers.size() < run_manager.max_squad_size
+	if overcap_limit <= 0:
+		return true
+	return soldiers.size() < overcap_limit
 
 func _apply_role_support(delta: float) -> void:
 	var counts: Dictionary = get_role_counts()

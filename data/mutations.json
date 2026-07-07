@@ -1,0 +1,107 @@
+{
+  "settings": {
+    "enabled": true,
+    "allow_stacking": false,
+    "start_distance": 80.0,
+    "distance_interval": 105.0,
+    "time_interval": 22.0,
+    "minimum_wave": 2,
+    "avoid_immediate_repeats": true
+  },
+  "schedule": [
+    {
+      "start_distance": 80.0,
+      "interval_distance": 120.0,
+      "time_interval": 24.0,
+      "minimum_wave": 2,
+      "allowed_mutations": ["runner_surge", "armoured_horde", "spitter_swarm"]
+    },
+    {
+      "start_distance": 260.0,
+      "interval_distance": 95.0,
+      "time_interval": 18.0,
+      "minimum_wave": 3,
+      "allowed_mutations": ["runner_surge", "armoured_horde", "spitter_swarm", "exploder_panic", "tank_push"]
+    }
+  ],
+  "mutations": {
+    "runner_surge": {
+      "id": "runner_surge",
+      "label": "Runner Surge",
+      "description": "Lean sprinters flood the road for a short burst.",
+      "duration": 16.0,
+      "spawn_weight_modifiers": {
+        "runner": 3.5
+      },
+      "enemy_stat_modifiers": {
+        "speed_multiplier": 1.08
+      },
+      "affected_enemy_ids": ["runner"],
+      "reward_multiplier": 1.1,
+      "warning_text": "Mutation: Runner Surge",
+      "end_text": "Runner Surge Cleared"
+    },
+    "armoured_horde": {
+      "id": "armoured_horde",
+      "label": "Armoured Horde",
+      "description": "The horde hardens up and shrugs off extra fire.",
+      "duration": 18.0,
+      "spawn_weight_modifiers": {},
+      "enemy_stat_modifiers": {
+        "hp_multiplier": 1.45
+      },
+      "affected_enemy_ids": ["walker", "runner", "spitter", "exploder", "tank"],
+      "reward_multiplier": 1.15,
+      "warning_text": "Armoured Horde Incoming",
+      "end_text": "Armoured Horde Broken"
+    },
+    "spitter_swarm": {
+      "id": "spitter_swarm",
+      "label": "Spitter Swarm",
+      "description": "Acid lobbers crowd the lane and pepper the squad.",
+      "duration": 15.0,
+      "spawn_weight_modifiers": {
+        "spitter": 3.2
+      },
+      "enemy_stat_modifiers": {
+        "attack_range_multiplier": 1.08
+      },
+      "affected_enemy_ids": ["spitter"],
+      "reward_multiplier": 1.12,
+      "warning_text": "Mutation: Spitter Swarm",
+      "end_text": "Spitter Swarm Faded"
+    },
+    "exploder_panic": {
+      "id": "exploder_panic",
+      "label": "Exploder Panic",
+      "description": "More volatile husks start sprinting into the barricade line.",
+      "duration": 14.0,
+      "spawn_weight_modifiers": {
+        "exploder": 2.9
+      },
+      "enemy_stat_modifiers": {
+        "damage_multiplier": 1.1
+      },
+      "affected_enemy_ids": ["exploder"],
+      "reward_multiplier": 1.15,
+      "warning_text": "Exploder Panic Incoming",
+      "end_text": "Exploder Panic Contained"
+    },
+    "tank_push": {
+      "id": "tank_push",
+      "label": "Tank Push",
+      "description": "Bulky zombies lumber in behind the frontline.",
+      "duration": 16.0,
+      "spawn_weight_modifiers": {
+        "tank": 2.5
+      },
+      "enemy_stat_modifiers": {
+        "hp_multiplier": 1.2
+      },
+      "affected_enemy_ids": ["tank"],
+      "reward_multiplier": 1.15,
+      "warning_text": "Tank Push Incoming",
+      "end_text": "Tank Push Broken"
+    }
+  }
+}

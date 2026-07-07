@@ -13,6 +13,17 @@
     "barricade_parts": {"type": "barricade_repair", "value": 40, "color": "#b8d2ff", "label": "Barricade Parts"},
     "cooldown_radio": {"type": "barricade_cooldown_reset", "value": 1, "color": "#98d8ff", "label": "Repair Radio"},
     "weapon_pickup": {"type": "weapon_pickup", "value": 1, "color": "#ca8cff", "label": "Weapon Crate"},
+    "piercing_rounds": {"type": "special_ammo", "ammo_type": "piercing", "duration": 10.0, "color": "#7dc8ff", "label": "Piercing Rounds"},
+    "incendiary_rounds": {"type": "special_ammo", "ammo_type": "incendiary", "duration": 10.0, "color": "#ff8f5d", "label": "Incendiary Rounds"},
+    "explosive_rounds": {"type": "special_ammo", "ammo_type": "explosive", "duration": 9.0, "color": "#ffb347", "label": "Explosive Rounds"},
+    "heavy_rounds": {"type": "special_ammo", "ammo_type": "heavy", "duration": 10.0, "color": "#d7d2c8", "label": "Heavy Rounds"},
+    "armoury_coin_stash": {"type": "coins", "value": 45, "color": "#ffcf61", "label": "Cache Coins"},
+    "armoury_weapon_drop": {"type": "weapon_pickup", "value": 1, "color": "#d9a8ff", "label": "Armoury Drop"},
+    "armoury_damage_surge": {"type": "damage_boost", "value": 0.75, "color": "#ff8b6b", "label": "Damage Surge"},
+    "armoury_fire_rate_surge": {"type": "fire_rate_boost", "value": 0.65, "color": "#78d8ff", "label": "Rapid Salvo"},
+    "armoury_rescue_team": {"type": "add_soldiers", "value": 3, "color": "#7bf0a0", "label": "Rescue Team"},
+    "armoury_barricade_kit": {"type": "barricade_repair", "value": 80, "color": "#bddcff", "label": "Barricade Kit"},
+    "armoury_rare_supply": {"type": "coins", "value": 90, "color": "#ffe08a", "label": "Rare Supply"},
     "risk_gate_supply": {
       "type": "risk_gate",
       "value": 3,
@@ -25,5 +36,32 @@
     },
     "boss_relic": {"type": "extend_distance", "value": 90, "color": "#7de3ff", "label": "+90m Route"}
   },
-  "obstacle_reward_table": ["coins_small", "coins_small", "coins_large", "add_soldier", "rescue_survivors", "fire_rate_boost", "damage_boost", "medical_supplies", "barricade_parts", "temporary_shield", "weapon_pickup"]
+  "obstacle_reward_table": ["coins_small", "coins_small", "coins_large", "add_soldier", "rescue_survivors", "fire_rate_boost", "damage_boost", "medical_supplies", "barricade_parts", "temporary_shield", "weapon_pickup", "piercing_rounds", "incendiary_rounds", "explosive_rounds", "heavy_rounds"],
+  "armoury_cache_reward_tables": {
+    "default": [
+      {"reward_id": "armoury_coin_stash", "weight": 3.0},
+      {"reward_id": "armoury_weapon_drop", "weight": 2.0},
+      {"reward_id": "armoury_damage_surge", "weight": 2.0},
+      {"reward_id": "armoury_fire_rate_surge", "weight": 2.0},
+      {"reward_id": "piercing_rounds", "weight": 1.4},
+      {"reward_id": "incendiary_rounds", "weight": 1.2},
+      {"reward_id": "explosive_rounds", "weight": 1.2},
+      {"reward_id": "heavy_rounds", "weight": 1.0},
+      {"reward_id": "armoury_rescue_team", "weight": 1.5},
+      {"reward_id": "armoury_barricade_kit", "weight": 1.5},
+      {"reward_id": "armoury_rare_supply", "weight": 0.5}
+    ],
+    "supply_route": [
+      {"reward_id": "armoury_coin_stash", "weight": 2.0},
+      {"reward_id": "armoury_weapon_drop", "weight": 3.0},
+      {"reward_id": "armoury_damage_surge", "weight": 1.8},
+      {"reward_id": "armoury_fire_rate_surge", "weight": 1.8},
+      {"reward_id": "piercing_rounds", "weight": 2.0},
+      {"reward_id": "incendiary_rounds", "weight": 1.8},
+      {"reward_id": "explosive_rounds", "weight": 1.8},
+      {"reward_id": "heavy_rounds", "weight": 1.6},
+      {"reward_id": "armoury_barricade_kit", "weight": 1.2},
+      {"reward_id": "armoury_rare_supply", "weight": 0.8}
+    ]
+  }
 }

@@ -31,12 +31,19 @@ func unregister_reward(reward: Node) -> void:
 	rewards.erase(reward)
 
 func collect_reward(reward_id: String) -> void:
+	last_collected_reward = apply_reward_by_id(reward_id)
+	print("Collected reward: %s" % last_collected_reward)
+
+func apply_reward_by_id(reward_id: String) -> Dictionary:
 	var reward_def: Dictionary = GameManager.reward_data.get("rewards", {}).get(reward_id, {})
 	var gate_compatible_type: String = String(reward_def.get("type", "coins"))
 	if gate_compatible_type == "add_soldier":
 		gate_compatible_type = "add_soldiers"
-	last_collected_reward = apply_reward_effect(gate_compatible_type, reward_def)
-	print("Collected reward: %s" % last_collected_reward)
+	var normalized_def: Dictionary = reward_def.duplicate(true)
+	if gate_compatible_type == "add_soldiers" and bool(GameManager.game_config.get("allow_pickup_soldier_overcap", false)):
+		normalized_def["allow_overcap"] = true
+		normalized_def["overcap_limit"] = int(GameManager.game_config.get("pickup_soldier_overcap_limit", 0))
+	return apply_reward_effect(gate_compatible_type, normalized_def)
 
 func apply_reward_effect(reward_type: String, reward_def: Dictionary) -> Dictionary:
 	var normalized_type: String = reward_type
@@ -54,15 +61,18 @@ func apply_reward_effect(reward_type: String, reward_def: Dictionary) -> Diction
 	}
 	match normalized_type:
 		"coins":
-			var coins_added: int = int(value)
-			run_manager.add_coins(coins_added)
+			var coins_added: int = run_manager.add_coins(int(value))
 			SaveManager.save_data["stats"]["coins_collected"] += coins_added
 			MissionManager.increment_progress("coins_collected", coins_added)
 			result["applied"] = coins_added
 			result["delta"] = coins_added
 			result["popup"] = "+%d COINS" % coins_added
 		"add_soldiers":
-			var added: int = run_manager.squad_manager.add_soldiers(int(value))
+			var added: int = run_manager.squad_manager.add_soldiers(
+				int(value),
+				bool(reward_def.get("allow_overcap", false)),
+				int(reward_def.get("overcap_limit", -1))
+			)
 			result["applied"] = added
 			result["delta"] = added
 			result["popup"] = "+%d SOLDIERS" % added
@@ -110,6 +120,12 @@ func apply_reward_effect(reward_type: String, reward_def: Dictionary) -> Diction
 				run_manager.weapon_manager.apply_temporary_weapon(String(weapon_ids[randi() % weapon_ids.size()]), 10.0)
 				result["applied"] = run_manager.weapon_manager.get_current_weapon_id()
 				result["popup"] = "WEAPON CRATE"
+		"special_ammo":
+			var ammo_type: String = String(reward_def.get("ammo_type", ""))
+			var duration: float = float(reward_def.get("duration", -1.0))
+			var applied: bool = run_manager.weapon_manager.apply_special_ammo(ammo_type, duration)
+			result["applied"] = applied
+			result["popup"] = String(reward_def.get("label", ammo_type)).to_upper()
 		"risk_gate":
 			var nested_reward := {
 				"type": String(reward_def.get("reward_type", "add_soldiers")),

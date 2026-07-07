@@ -1,9 +1,8 @@
 {
-  "walker": {"name": "Walker", "hp": 24, "speed": 44, "damage": 8, "attack_range": 34, "reward_value": 4, "color": "#79a35d", "special_behavior": "none"},
-  "runner": {"name": "Runner", "hp": 18, "speed": 72, "damage": 7, "attack_range": 28, "reward_value": 5, "color": "#d0aa50", "special_behavior": "runner"},
-  "tank": {"name": "Tank", "hp": 80, "speed": 28, "damage": 16, "attack_range": 38, "reward_value": 12, "color": "#556b2f", "special_behavior": "tank"},
+  "walker": {"name": "Walker", "hp": 25, "speed": 45, "damage": 8, "attack_range": 34, "reward_value": 4, "color": "#79a35d", "special_behavior": "none"},
+  "runner": {"name": "Runner", "hp": 19, "speed": 74, "damage": 7, "attack_range": 28, "reward_value": 5, "color": "#d0aa50", "special_behavior": "runner"},
+  "tank": {"name": "Tank", "hp": 84, "speed": 29, "damage": 16, "attack_range": 38, "reward_value": 12, "color": "#556b2f", "special_behavior": "tank"},
   "exploder": {"name": "Exploder", "hp": 20, "speed": 48, "damage": 22, "attack_range": 20, "reward_value": 7, "color": "#cf5f4d", "special_behavior": "exploder"},
-  "spitter": {"name": "Spitter", "hp": 26, "speed": 34, "damage": 6, "attack_range": 180, "reward_value": 8, "color": "#7a60c9", "special_behavior": "spitter"},
-  "boss": {"name": "Boss", "hp": 280, "speed": 24, "damage": 20, "attack_range": 44, "reward_value": 40, "color": "#c23f3f", "special_behavior": "boss"}
+  "spitter": {"name": "Spitter", "hp": 28, "speed": 35, "damage": 6, "attack_range": 180, "reward_value": 8, "color": "#7a60c9", "special_behavior": "spitter"},
+  "boss": {"name": "Boss", "hp": 300, "speed": 24, "damage": 20, "attack_range": 44, "reward_value": 40, "color": "#c23f3f", "special_behavior": "boss"}
 }
-

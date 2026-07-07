@@ -1,0 +1,57 @@
+{
+  "spawn_distance_interval": 32.0,
+  "spawn_start_distance": 18.0,
+  "spawn_y": -150.0,
+  "damage_per_value_step": 6.0,
+  "fallback_row_gate_count": 2,
+  "start_values": [-2, 1, -1, 2, -3, 3],
+  "rows": [
+    {
+      "gates": [
+        {"type": "add_soldiers", "value": 2},
+        {"type": "remove_soldiers", "value": 1}
+      ]
+    },
+    {
+      "gates": [
+        {"type": "coins", "value": 10},
+        {"type": "fire_rate_boost", "value": 0.2}
+      ]
+    },
+    {
+      "gates": [
+        {"type": "damage_boost", "value": 0.2},
+        {"type": "temporary_shield", "value": 30},
+        {"type": "remove_soldiers", "value": 2}
+      ]
+    },
+    {
+      "gates": [
+        {"type": "add_soldiers", "value": 3},
+        {"type": "multiply_soldiers", "value": 2}
+      ]
+    },
+    {
+      "gates": [
+        {"type": "weapon_pickup", "value": 1, "label": "Weapon Crate"},
+        {"type": "barricade_repair", "value": 35, "label": "Barricade Parts", "color": "#b8d2ff"},
+        {"type": "remove_soldiers", "value": 2}
+      ]
+    },
+    {
+      "gates": [
+        {"type": "heal_soldiers", "value": 2, "label": "Medical Supplies", "color": "#8cffb2"},
+        {"type": "fire_rate_boost", "value": 0.35, "label": "Ammo Cache"},
+        {"type": "coins", "value": 18}
+      ]
+    },
+    {
+      "gates": [
+        {"type": "risk_gate", "label": "Risk Gate", "color": "#ff7d7d", "reward_type": "add_soldiers", "reward_value": 3, "spawn_enemy_count": 3, "spawn_pool": ["runner", "runner", "exploder"]},
+        {"type": "weapon_pickup", "value": 1, "label": "Armoury Truck", "color": "#ffb266"}
+      ]
+    }
+  ],
+  "max_value": 12,
+  "min_value": -12
+}

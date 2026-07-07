@@ -1,0 +1,14 @@
+{
+  "missions": [
+    {"id": "kill_100", "title": "Thin the Horde", "description": "Kill 100 zombies.", "target_type": "kills", "target_value": 100, "reward": {"coins": 50}, "completed": false},
+    {"id": "collect_120_coins", "title": "Scavenge the Strip", "description": "Collect 120 coins across runs.", "target_type": "coins_collected", "target_value": 120, "reward": {"coins": 55}, "completed": false},
+    {"id": "reach_150", "title": "Push Forward", "description": "Reach 150m.", "target_type": "distance", "target_value": 150, "reward": {"coins": 40}, "completed": false},
+    {"id": "reach_300", "title": "Long March", "description": "Reach 300m.", "target_type": "distance", "target_value": 300, "reward": {"coins": 70}, "completed": false},
+    {"id": "destroy_25_barrels", "title": "Road Clearer", "description": "Destroy 25 barrels or crates.", "target_type": "obstacles_destroyed", "target_value": 25, "reward": {"coins": 45}, "completed": false},
+    {"id": "rescue_8_soldiers", "title": "Bring Them Home", "description": "Rescue 8 soldiers from gates or pickups.", "target_type": "soldiers_rescued", "target_value": 8, "reward": {"coins": 65}, "completed": false},
+    {"id": "unlock_metal_wall", "title": "Stronger Cover", "description": "Unlock Metal Wall.", "target_type": "unlock_barricade", "target_value": 1, "reward": {"coins": 60}, "completed": false},
+    {"id": "defeat_first_boss", "title": "Break the Brute", "description": "Defeat your first boss.", "target_type": "boss_kills", "target_value": 1, "reward": {"coins": 80}, "completed": false},
+    {"id": "deploy_12_barricades", "title": "Hold the Line", "description": "Deploy barricades 12 times.", "target_type": "barricades_deployed", "target_value": 12, "reward": {"coins": 70}, "completed": false},
+    {"id": "finish_with_6_soldiers", "title": "Full Line", "description": "Finish a run with 6 soldiers.", "target_type": "finish_with_soldiers", "target_value": 6, "reward": {"coins": 90}, "completed": false}
+  ]
+}

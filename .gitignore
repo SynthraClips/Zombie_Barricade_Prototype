@@ -1,0 +1,22 @@
+# Godot generated/cache files
+.godot/
+
+# Local app/save data
+.appdata/
+.userdata/
+
+# Exports and generated artifacts
+exports/
+*.zip
+*.exe
+
+# Smoke-test and temp logs
+tests/computer_use/logs/
+reports/temp/
+reports/*.tmp
+*.log
+*.tmp
+
+# OS/editor clutter
+.DS_Store
+Thumbs.db

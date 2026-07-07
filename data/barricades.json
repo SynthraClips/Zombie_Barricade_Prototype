@@ -1,0 +1,10 @@
+{
+  "paper_wall": {"name": "Paper Wall", "hp": 45, "width": 170, "height": 24, "color": "#d7d0aa", "cooldown_multiplier": 1.1},
+  "wooden_wall": {"name": "Wooden Barricade", "hp": 90, "width": 180, "height": 28, "color": "#9b6d43", "cooldown_multiplier": 1.0},
+  "metal_wall": {"name": "Metal Barricade", "hp": 145, "width": 190, "height": 30, "color": "#8b96a8", "cooldown_multiplier": 1.05},
+  "barbed_wire": {"name": "Barbed Wire", "hp": 70, "width": 210, "height": 18, "color": "#b9c2cb", "slow_factor": 0.45, "cooldown_multiplier": 0.85},
+  "explosive_trap": {"name": "Explosive Trap", "hp": 60, "width": 120, "height": 34, "color": "#c45d43", "explosion_damage": 30, "explosion_radius": 90, "cooldown_multiplier": 1.15},
+  "reinforced_wall": {"name": "Reinforced Barricade", "hp": 235, "width": 212, "height": 36, "color": "#5f6772", "cooldown_multiplier": 1.35, "repair_multiplier": 1.2},
+  "concrete_wall": {"name": "Concrete Wall", "hp": 220, "width": 200, "height": 34, "color": "#7c8289", "cooldown_multiplier": 1.25},
+  "energy_shield": {"name": "Energy Shield", "hp": 280, "width": 210, "height": 26, "color": "#52d5ff", "cooldown_multiplier": 1.4}
+}

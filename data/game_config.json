@@ -1,0 +1,38 @@
+{
+  "target_distance": 525,
+  "base_scroll_speed": 90.0,
+  "max_squad_size": 24,
+  "starting_soldiers": 3,
+  "auto_fire_default": true,
+  "starting_weapon": "rifle",
+  "starting_barricade_tier": "wooden_wall",
+  "barricade_cooldown": 8.0,
+  "base_enemy_spawn_interval": 1.8,
+  "obstacle_spawn_interval": 3.4,
+  "boss_milestones": [200, 360],
+  "temporary_boost_duration": 8.0,
+  "temporary_shield_hp": 60,
+  "pickup_magnet_radius": 140.0,
+  "pickup_collect_radius": 72.0,
+  "pickup_magnet_speed": 420.0,
+  "crit_multiplier": 1.5,
+  "run_coin_keep_ratio": 1.0,
+  "soldier_roles": {
+    "rifleman": {
+      "name": "Rifleman",
+      "color": "#4f8bd6",
+      "accent_color": "#dbeafe",
+      "weapon_override": "",
+      "muzzle_color": "#ffd966",
+      "barricade_repair_per_second": 0.0
+    },
+    "engineer": {
+      "name": "Engineer",
+      "color": "#d68a42",
+      "accent_color": "#ffe4a6",
+      "weapon_override": "",
+      "muzzle_color": "#ffdd88",
+      "barricade_repair_per_second": 4.0
+    }
+  }
+}

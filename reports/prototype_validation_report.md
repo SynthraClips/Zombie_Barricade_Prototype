@@ -1,0 +1,71 @@
+# Zombie Barricade Prototype Validation Report
+
+- Date: 2026-07-07T11:43:00
+- Passed: 63
+- Failed: 0
+
+- Zombie Barricade Prototype Validation
+
+- [PASS] Required project files exist 
+- [PASS] Enemy data loads (6 entries)
+- [PASS] Weapon data loads (6 entries)
+- [PASS] Barricade data loads (8 entries)
+- [PASS] Wave data loads 
+- [PASS] Reward data loads 
+- [PASS] Gate data loads 
+- [PASS] Mission data loads 
+- [PASS] Upgrade data loads 
+- [PASS] Wave enemy references are valid 
+- [PASS] Reward and gate references are valid 
+- [PASS] Mission target types are valid 
+- [PASS] Upgrade costs and choice references are valid 
+- [PASS] Boss data is valid 
+- [PASS] Main menu loads 
+- [PASS] Main menu buttons exist 
+- [PASS] Battlefield scene loads 
+- [PASS] Squad spawns 
+- [PASS] Barricade deploys at run start 
+- [PASS] Distance counter increases 
+- [PASS] Soldiers damage zombies 
+- [PASS] Zombies can die 
+- [PASS] Coins are awarded 
+- [PASS] Rewards can spawn from obstacles 
+- [PASS] Mission progress updates 
+- [PASS] Barricade blocks zombies 
+- [PASS] Barricade can be destroyed 
+- [PASS] Squad follows mouse X position 
+- [PASS] Squad remains clamped inside road bounds 
+- [PASS] Multiple gates can spawn in one row 
+- [PASS] Projectile damage can improve gates 
+- [PASS] Positive soldier gate adds soldiers 
+- [PASS] Choosing one gate clears the row 
+- [PASS] Negative gate removes soldiers but not below 1 
+- [PASS] Gates do not spawn at max squad cap 
+- [PASS] Pickup magnet pulls reward towards squad 
+- [PASS] Field pickup applies reward 
+- [PASS] Pickup collects and disappears 
+- [PASS] Pickup manager has no stale references after collection 
+- [PASS] Pickup cannot be collected twice 
+- [PASS] Boss collectible extends run distance 
+- [PASS] Manual fire stays idle when auto-fire is disabled 
+- [PASS] Hold-to-fire still works when auto-fire is disabled 
+- [PASS] Auto-fire does not fire while paused 
+- [PASS] Auto-fire fires without holding input 
+- [PASS] Auto-fire does not fire after game over 
+- [PASS] Auto-fire does not break gate targeting 
+- [PASS] Auto-fire does not break obstacle targeting 
+- [PASS] Required barricade types exist 
+- [PASS] Each enemy type can spawn 
+- [PASS] Each barricade type can spawn 
+- [PASS] Barricade cooldown works 
+- [PASS] Main menu buttons are present 
+- [PASS] Upgrade screen loads 
+- [PASS] Mission screen loads 
+- [PASS] Settings screen loads 
+- [PASS] Save data loads with missing fields 
+- [PASS] Corrupted save fallback works 
+- [PASS] Run can populate managers before reset 
+- [PASS] No active gates/rewards/enemies remain after reset 
+- [PASS] Game over can trigger 
+- [PASS] Win condition can trigger 
+- [PASS] Upgrades save/load 

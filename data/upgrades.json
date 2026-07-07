@@ -1,0 +1,16 @@
+{
+  "upgrades": {
+    "soldier_damage": {"title": "Soldier Damage", "type": "multiplier", "base": 0.0, "per_level": 0.12, "cost_base": 30, "cost_growth": 1.45, "max_level": 10},
+    "fire_rate": {"title": "Fire Rate", "type": "multiplier", "base": 0.0, "per_level": 0.09, "cost_base": 28, "cost_growth": 1.42, "max_level": 10},
+    "starting_soldiers": {"title": "Starting Soldiers", "type": "flat", "base": 0, "per_level": 1, "cost_base": 55, "cost_growth": 1.7, "max_level": 3},
+    "barricade_hp": {"title": "Barricade HP", "type": "multiplier", "base": 0.0, "per_level": 0.18, "cost_base": 32, "cost_growth": 1.5, "max_level": 10},
+    "barricade_cooldown": {"title": "Barricade Cooldown", "type": "multiplier", "base": 0.0, "per_level": 0.08, "cost_base": 36, "cost_growth": 1.48, "max_level": 8},
+    "barricade_repair": {"title": "Barricade Repair", "type": "multiplier", "base": 0.0, "per_level": 0.12, "cost_base": 34, "cost_growth": 1.45, "max_level": 8},
+    "barricade_auto_repair": {"title": "Auto Repair", "type": "multiplier", "base": 0.0, "per_level": 1.5, "cost_base": 42, "cost_growth": 1.55, "max_level": 5},
+    "coin_gain": {"title": "Coin Gain", "type": "multiplier", "base": 0.0, "per_level": 0.1, "cost_base": 26, "cost_growth": 1.4, "max_level": 10},
+    "critical_chance": {"title": "Critical Chance", "type": "multiplier", "base": 0.0, "per_level": 0.03, "cost_base": 48, "cost_growth": 1.55, "max_level": 8},
+    "starting_weapon": {"title": "Starting Weapon", "type": "choice", "choices": ["rifle", "shotgun", "minigun", "flamethrower", "rocket_launcher", "tesla_cannon"], "cost_base": 80, "cost_growth": 1.65, "max_level": 5},
+    "starting_barricade_tier": {"title": "Starting Barricade", "type": "choice", "choices": ["wooden_wall", "metal_wall", "barbed_wire", "explosive_trap", "reinforced_wall"], "cost_base": 75, "cost_growth": 1.6, "max_level": 4},
+    "starting_support_role": {"title": "Support Role", "type": "choice", "choices": ["rifleman", "engineer"], "cost_base": 70, "cost_growth": 1.75, "max_level": 1}
+  }
+}

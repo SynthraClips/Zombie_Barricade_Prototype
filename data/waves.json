@@ -1,0 +1,10 @@
+{
+  "waves": [
+    {"wave": 1, "spawn_count": 6, "pool": ["walker", "walker", "runner"]},
+    {"wave": 2, "spawn_count": 8, "pool": ["walker", "runner", "spitter"]},
+    {"wave": 3, "spawn_count": 10, "pool": ["walker", "runner", "tank", "exploder"]},
+    {"wave": 4, "spawn_count": 12, "pool": ["runner", "tank", "spitter", "exploder"]},
+    {"wave": 5, "spawn_count": 14, "pool": ["walker", "runner", "tank", "spitter", "exploder"]}
+  ]
+}
+

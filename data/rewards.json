@@ -1,0 +1,29 @@
+{
+  "rewards": {
+    "coins_small": {"type": "coins", "value": 8, "color": "#f5d142", "label": "+Coins"},
+    "coins_large": {"type": "coins", "value": 18, "color": "#f09c35", "label": "Coin Cache"},
+    "add_soldier": {"type": "add_soldier", "value": 1, "color": "#68d070", "label": "+Soldier"},
+    "rescue_survivors": {"type": "add_soldiers", "value": 2, "color": "#78e6a0", "label": "Rescue Survivors"},
+    "fire_rate_boost": {"type": "fire_rate_boost", "value": 0.35, "color": "#70c8ff", "label": "Rapid Fire"},
+    "ammo_cache": {"type": "fire_rate_boost", "value": 0.5, "color": "#5fc0ff", "label": "Ammo Cache"},
+    "damage_boost": {"type": "damage_boost", "value": 0.4, "color": "#ff8080", "label": "Damage Up"},
+    "armoury_truck": {"type": "damage_boost", "value": 0.65, "color": "#ffb266", "label": "Armoury Truck"},
+    "temporary_shield": {"type": "temporary_shield", "value": 60, "color": "#82f0ff", "label": "Shield"},
+    "medical_supplies": {"type": "heal_soldiers", "value": 2, "color": "#8cffb2", "label": "Medical Supplies"},
+    "barricade_parts": {"type": "barricade_repair", "value": 40, "color": "#b8d2ff", "label": "Barricade Parts"},
+    "cooldown_radio": {"type": "barricade_cooldown_reset", "value": 1, "color": "#98d8ff", "label": "Repair Radio"},
+    "weapon_pickup": {"type": "weapon_pickup", "value": 1, "color": "#ca8cff", "label": "Weapon Crate"},
+    "risk_gate_supply": {
+      "type": "risk_gate",
+      "value": 3,
+      "color": "#ff7d7d",
+      "label": "Risk Gate",
+      "reward_type": "add_soldiers",
+      "reward_value": 3,
+      "spawn_enemy_count": 3,
+      "spawn_pool": ["runner", "runner", "exploder"]
+    },
+    "boss_relic": {"type": "extend_distance", "value": 90, "color": "#7de3ff", "label": "+90m Route"}
+  },
+  "obstacle_reward_table": ["coins_small", "coins_small", "coins_large", "add_soldier", "rescue_survivors", "fire_rate_boost", "damage_boost", "medical_supplies", "barricade_parts", "temporary_shield", "weapon_pickup"]
+}

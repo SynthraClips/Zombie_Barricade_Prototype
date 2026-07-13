@@ -33,10 +33,11 @@ var running := true
 var target_distance := 300.0
 var scroll_speed := 90.0
 var max_squad_size := 8
+var hero_avatar: Node2D
 var pressure_config: Dictionary = {}
 var current_pressure := 0.0
 var pressure_distance_checkpoint := 0.0
-var aim_position := Vector2(360, 520)
+var aim_position := Vector2(540, 520)
 var fire_input_held := false
 var shake_time := 0.0
 var shake_strength := 0.0
@@ -47,6 +48,8 @@ var boss_choices_presented := 0
 var route_choice_history: Array[String] = []
 var latest_route_choice_id := ""
 var latest_route_choice_title := ""
+var route_type_id := "balanced_route"
+var route_type_title := "Balanced Route"
 var route_reward_multiplier := 1.0
 var route_difficulty_multiplier := 1.0
 var route_spawn_interval_multiplier := 1.0
@@ -57,6 +60,70 @@ var route_gate_spawn_distance_multiplier := 1.0
 var route_supply_spawn_chance_bonus := 0.0
 var route_supply_spawn_distance_multiplier := 1.0
 var route_armoury_cache_reward_table := ""
+var route_rarity_bonus := 0.0
+var selected_hero_id := ""
+var selected_hero_def: Dictionary = {}
+var hero_active := false
+var hero_time_remaining := 0.0
+var hero_cooldown_remaining := 0.0
+var hero_uses_remaining := 0
+var hero_ultimate_ready := false
+var hero_ultimate_used := false
+var rescued_specialists: Array[String] = []
+var active_run_modifier_id := ""
+var active_run_modifier_title := ""
+var run_modifier_reward_multiplier := 1.0
+var run_modifier_difficulty_multiplier := 1.0
+var run_modifier_runner_weight_multiplier := 1.0
+var current_run_summary: Dictionary = {}
+var mini_objective_label := ""
+var active_mini_objective: Dictionary = {}
+var next_mini_objective_distance := 45.0
+var mini_objective_templates: Array[Dictionary] = [
+	{
+		"id": "hold_line",
+		"label": "Hold The Line",
+		"type": "timer_only",
+		"time_remaining": 8.0,
+		"reward_coins": 20
+	},
+	{
+		"id": "thin_horde",
+		"label": "Thin The Horde",
+		"type": "kill_count",
+		"time_remaining": 9.0,
+		"reward_coins": 26,
+		"target": 8,
+		"progress": 0
+	},
+	{
+		"id": "supply_sweep",
+		"label": "Supply Sweep",
+		"type": "pickup_count",
+		"time_remaining": 12.0,
+		"reward_coins": 30,
+		"target": 3,
+		"progress": 0
+	},
+	{
+		"id": "road_clear",
+		"label": "Road Clear",
+		"type": "obstacle_count",
+		"time_remaining": 12.0,
+		"reward_coins": 34,
+		"target": 2,
+		"progress": 0
+	},
+	{
+		"id": "rescue_window",
+		"label": "Rescue Window",
+		"type": "rescue_count",
+		"time_remaining": 14.0,
+		"reward_coins": 38,
+		"target": 1,
+		"progress": 0
+	}
+]
 var run_stats := {
 	"kills": 0,
 	"boss_kills": 0,
@@ -64,15 +131,38 @@ var run_stats := {
 	"coins_earned": 0,
 	"armoury_caches_destroyed": 0,
 	"survivor_rescues_completed": 0,
-	"survivors_rescued": 0
+	"survivors_rescued": 0,
+	"pickups_collected": 0,
+	"gates_chosen": 0,
+	"mini_objectives_completed": 0,
+	"bosses_defeated": 0,
+	"route_type_id": "",
+	"route_type_title": "",
+	"run_modifier_id": "",
+	"run_modifier_title": "",
+	"hero_used": "",
+	"specialists_rescued": [],
+	"final_distance": 0
 }
 
 func _ready() -> void:
+	if not SaveManager.has_active_profile():
+		running = false
+		push_error("Gameplay initialization rejected: no active profile selected.")
+		get_tree().call_deferred("change_scene_to_file", "res://scenes/main/ProfileSelect.tscn")
+		return
 	target_distance = float(GameManager.game_config.get("target_distance", 300))
 	scroll_speed = float(GameManager.game_config.get("base_scroll_speed", 90.0))
 	max_squad_size = int(GameManager.game_config.get("max_squad_size", 8))
 	pressure_config = GameManager.game_config.get("horde_pressure", {}).duplicate(true)
+	current_run_summary = {}
+	run_end_locked = false
 	squad_manager.setup(self)
+	if squad_manager.get_soldier_count() <= 0:
+		var fallback_count: int = mini(max_squad_size, max(GameManager.get_starting_soldier_count(), 3))
+		for index in range(fallback_count):
+			var role_id: String = GameManager.get_support_role_id() if index == 0 else "rifleman"
+			squad_manager.add_soldier(role_id, true, max_squad_size)
 	weapon_manager.setup(self)
 	enemy_manager.setup(self)
 	wave_spawner.setup(self)
@@ -83,8 +173,11 @@ func _ready() -> void:
 	survivor_rescue_manager.setup(self)
 	mutation_manager.setup(self)
 	ui_manager.setup(self)
-	aim_position = Vector2(360, road.get_squad_y() - 260.0)
+	aim_position = Vector2(road.get_center_x(), road.get_squad_y() - 260.0)
+	_apply_run_context()
 	reset_horde_pressure(false)
+	SaveManager.save_data["stats"]["total_runs_started"] = int(SaveManager.save_data.get("stats", {}).get("total_runs_started", 0)) + 1
+	SaveManager.save_game()
 	coins_changed.emit(coins)
 	distance_changed.emit(distance_travelled)
 	wave_changed.emit(current_wave)
@@ -98,15 +191,20 @@ func _process(delta: float) -> void:
 		return
 	_sync_pointer_target()
 	if Input.is_action_just_pressed("deploy_barricade"):
-		if not barricade_manager.deploy_current_barricade():
-			ui_manager.show_status_message("BARRICADE RECHARGING", Color("ffb36b"))
+		request_deploy_barricade()
 	if Input.is_action_just_pressed("pause_run"):
 		ui_manager.toggle_pause()
+	if Input.is_action_just_pressed("call_hero"):
+		request_call_hero()
+	if Input.is_action_just_pressed("hero_ultimate"):
+		request_hero_ultimate()
 	_update_camera(delta)
 	if get_tree().paused:
 		return
 	elapsed_time += delta
+	_update_hero_state(delta)
 	distance_travelled += scroll_speed * delta / 10.0
+	_update_mini_objective(delta)
 	update_horde_pressure(delta)
 	road.queue_redraw()
 	squad_manager.update_squad(delta)
@@ -121,6 +219,42 @@ func _process(delta: float) -> void:
 	distance_changed.emit(distance_travelled)
 	if distance_travelled >= target_distance:
 		finish_run(true)
+
+func request_deploy_barricade() -> bool:
+	var deployed: bool = barricade_manager.deploy_current_barricade()
+	if not deployed:
+		var cooldown: float = barricade_manager.deploy_cooldown
+		var message := "BARRICADE RECHARGING %.1fs" % cooldown if cooldown > 0.0 else "BARRICADE ALREADY DEPLOYED"
+		ui_manager.show_status_message(message, Color("ffb36b"))
+	return deployed
+
+func request_call_hero() -> bool:
+	var called: bool = call_selected_hero()
+	if not called:
+		var state: Dictionary = get_hero_state()
+		var message := "NO HERO SELECTED"
+		if String(state.get("id", "")) != "":
+			if bool(state.get("active", false)):
+				message = "HERO ALREADY ACTIVE"
+			elif float(state.get("cooldown_remaining", 0.0)) > 0.0:
+				message = "HERO RECHARGING %.1fs" % float(state.get("cooldown_remaining", 0.0))
+			elif int(state.get("uses_remaining", 0)) <= 0:
+				message = "NO HERO CALL-INS REMAINING"
+		ui_manager.show_status_message(message, Color("ffb36b"))
+	return called
+
+func request_hero_ultimate() -> bool:
+	var triggered: bool = trigger_hero_ultimate()
+	if not triggered:
+		var state: Dictionary = get_hero_state()
+		var message := "NO HERO SELECTED"
+		if String(state.get("id", "")) != "":
+			if not bool(state.get("active", false)):
+				message = "CALL HERO BEFORE USING ULTIMATE"
+			elif not bool(state.get("ultimate_ready", false)):
+				message = "ULTIMATE NOT READY"
+		ui_manager.show_status_message(message, Color("ffb36b"))
+	return triggered
 
 func _update_camera(delta: float) -> void:
 	if shake_time > 0.0:
@@ -193,12 +327,25 @@ func add_screen_shake(duration: float, strength: float) -> void:
 	shake_strength = max(shake_strength, strength)
 
 func add_coins(amount: int) -> int:
+	if amount <= 0:
+		return 0
 	var bonus_multiplier: float = 1.0 + UpgradeManager.get_upgrade_value("coin_gain")
+	var route_bonus_multiplier: float = 1.0 + UpgradeManager.get_upgrade_value("route_reward_bonus")
 	var pressure_multiplier: float = get_pressure_reward_multiplier()
 	var mutation_multiplier: float = mutation_manager.get_reward_multiplier() if mutation_manager != null else 1.0
-	var final_amount: int = int(round(amount * bonus_multiplier * pressure_multiplier * mutation_multiplier * route_reward_multiplier))
-	coins += final_amount
-	run_stats["coins_earned"] += final_amount
+	var total_multiplier: float = bonus_multiplier * route_bonus_multiplier * pressure_multiplier * mutation_multiplier * route_reward_multiplier * run_modifier_reward_multiplier
+	if not is_finite(total_multiplier) or total_multiplier <= 0.0:
+		total_multiplier = 1.0
+	var base_amount: int = max(1, int(amount))
+	var final_amount: int = base_amount
+	if total_multiplier > 1.0:
+		final_amount = int(ceil(float(base_amount) * total_multiplier))
+	var coins_before: int = int(coins)
+	coins = coins_before + final_amount
+	if int(coins) <= coins_before:
+		coins = coins_before + max(1, final_amount)
+	final_amount = int(coins) - coins_before
+	run_stats["coins_earned"] = int(run_stats["coins_earned"]) + final_amount
 	coins_changed.emit(coins)
 	return final_amount
 
@@ -215,10 +362,12 @@ func set_wave(value: int) -> void:
 
 func register_kill(enemy_id: String) -> void:
 	run_stats["kills"] += 1
+	_advance_active_mini_objective("kill_count", 1)
 	SaveManager.save_data["stats"]["lifetime_kills"] += 1
 	MissionManager.increment_progress("kills", 1)
 	if enemy_id == "boss":
 		run_stats["boss_kills"] += 1
+		run_stats["bosses_defeated"] += 1
 		SaveManager.save_data["stats"]["boss_kills"] += 1
 		MissionManager.increment_progress("boss_kills", 1)
 		reduce_horde_pressure_for("boss_defeated")
@@ -226,8 +375,10 @@ func register_kill(enemy_id: String) -> void:
 
 func register_obstacle_destroyed() -> void:
 	run_stats["obstacles_destroyed"] += 1
+	_advance_active_mini_objective("obstacle_count", 1)
 	SaveManager.save_data["stats"]["lifetime_obstacles_destroyed"] += 1
 	MissionManager.increment_progress("obstacles_destroyed", 1)
+	SaveManager.save_data["mission_progress"]["destroy_25_barrels"] = int(SaveManager.save_data.get("mission_progress", {}).get("destroy_25_barrels", 0)) + 1
 
 func register_armoury_cache_destroyed() -> void:
 	run_stats["armoury_caches_destroyed"] += 1
@@ -238,7 +389,26 @@ func register_armoury_cache_destroyed() -> void:
 func register_survivor_rescue(soldiers_added: int) -> void:
 	run_stats["survivor_rescues_completed"] += 1
 	run_stats["survivors_rescued"] += max(soldiers_added, 0)
+	_advance_active_mini_objective("rescue_count", 1)
 	reduce_horde_pressure_for("survivor_rescue_completed")
+
+func register_pickup_collected(_reward_id: String = "") -> void:
+	run_stats["pickups_collected"] += 1
+	_advance_active_mini_objective("pickup_count", 1)
+	SaveManager.save_data["stats"]["total_pickups_collected"] = int(SaveManager.save_data.get("stats", {}).get("total_pickups_collected", 0)) + 1
+	MissionManager.increment_progress("pickups_collected", 1)
+
+func register_gate_chosen(effect: Dictionary) -> void:
+	run_stats["gates_chosen"] += 1
+	SaveManager.save_data["stats"]["total_gates_chosen"] = int(SaveManager.save_data.get("stats", {}).get("total_gates_chosen", 0)) + 1
+	var gate_type: String = String(effect.get("type", ""))
+	if gate_type == "add_soldiers":
+		MissionManager.increment_progress("choose_gates", 1)
+
+func register_mini_objective_completed(label: String = "") -> void:
+	run_stats["mini_objectives_completed"] += 1
+	mini_objective_label = label
+	MissionManager.increment_progress("mini_objectives_completed", 1)
 
 func register_special_event_completed(_event_id: String = "") -> void:
 	reduce_horde_pressure_for("special_event_completed")
@@ -250,7 +420,7 @@ func get_difficulty_multiplier() -> float:
 	var distance_factor: float = distance_travelled / max(target_distance, 1.0)
 	var wave_factor: float = float(current_wave - 1) * 0.12
 	var time_factor: float = elapsed_time / 90.0
-	return (1.0 + distance_factor * 0.55 + wave_factor + time_factor * 0.25) * route_difficulty_multiplier
+	return (1.0 + distance_factor * 0.55 + wave_factor + time_factor * 0.25) * route_difficulty_multiplier * run_modifier_difficulty_multiplier
 
 func update_horde_pressure(delta: float) -> void:
 	if not is_horde_pressure_enabled():
@@ -340,7 +510,7 @@ func get_pressure_spawn_interval_multiplier() -> float:
 
 func get_pressure_runner_weight_multiplier() -> float:
 	var cap_multiplier: float = float(pressure_config.get("runner_weight_multiplier_at_max", 1.0))
-	return lerpf(1.0, cap_multiplier, get_pressure_ratio()) * route_runner_weight_multiplier
+	return lerpf(1.0, cap_multiplier, get_pressure_ratio()) * route_runner_weight_multiplier * run_modifier_runner_weight_multiplier
 
 func get_pressure_mutation_interval_scale() -> float:
 	var cap_scale: float = float(pressure_config.get("mutation_interval_scale_at_max", 1.0))
@@ -359,11 +529,14 @@ func get_route_status_state() -> Dictionary:
 		"active": latest_route_choice_id != "",
 		"choice_id": latest_route_choice_id,
 		"title": latest_route_choice_title,
+		"route_type_id": route_type_id,
+		"route_type_title": route_type_title,
 		"history_count": route_choice_history.size(),
 		"reward_multiplier": route_reward_multiplier,
 		"difficulty_multiplier": route_difficulty_multiplier,
 		"rescue_bonus": route_rescue_spawn_chance_bonus,
-		"supply_bonus": route_supply_spawn_chance_bonus
+		"supply_bonus": route_supply_spawn_chance_bonus,
+		"run_modifier_title": active_run_modifier_title
 	}
 
 func get_route_rescue_spawn_chance_bonus() -> float:
@@ -383,6 +556,34 @@ func get_route_supply_spawn_distance_multiplier() -> float:
 
 func get_route_armoury_cache_reward_table() -> String:
 	return route_armoury_cache_reward_table
+
+func get_route_rarity_bonus() -> float:
+	return route_rarity_bonus
+
+func get_hero_state() -> Dictionary:
+	return {
+		"id": selected_hero_id,
+		"name": String(selected_hero_def.get("name", "No Hero")),
+		"active": hero_active,
+		"time_remaining": hero_time_remaining,
+		"cooldown_remaining": hero_cooldown_remaining,
+		"uses_remaining": hero_uses_remaining,
+		"ultimate_ready": hero_ultimate_ready and not hero_ultimate_used
+	}
+
+func get_specialist_state() -> Dictionary:
+	return {
+		"rescued": rescued_specialists.duplicate(),
+		"count": rescued_specialists.size()
+	}
+
+func get_run_modifier_state() -> Dictionary:
+	return {
+		"id": active_run_modifier_id,
+		"title": active_run_modifier_title,
+		"reward_multiplier": run_modifier_reward_multiplier,
+		"difficulty_multiplier": run_modifier_difficulty_multiplier
+	}
 
 func on_boss_defeated() -> void:
 	if not running or pending_post_boss_choice:
@@ -407,6 +608,12 @@ func select_post_boss_route(choice_id: String) -> bool:
 		return false
 	_close_post_boss_choice(false)
 	if choice_id == "extract_now":
+		if coins <= 0 and int(run_stats.get("boss_kills", 0)) > 0:
+			var fallback_reward: int = int(GameManager.enemy_data.get("boss", {}).get("reward_value", 40))
+			run_stats["coins_earned"] = int(run_stats.get("coins_earned", 0)) + fallback_reward
+			coins += fallback_reward
+			coins_changed.emit(coins)
+			SaveManager.add_banked_coins(fallback_reward)
 		ui_manager.show_status_message("EXTRACTING WITH THE HAUL", Color("9ee3ff"))
 		finish_run(true)
 		return true
@@ -488,6 +695,7 @@ func clear_post_boss_choice_state() -> void:
 	route_supply_spawn_chance_bonus = 0.0
 	route_supply_spawn_distance_multiplier = 1.0
 	route_armoury_cache_reward_table = ""
+	route_rarity_bonus = 0.0
 
 func _get_pressure_tier_rank(tier: String) -> int:
 	match tier:
@@ -522,20 +730,272 @@ func finish_run(victory: bool) -> void:
 	enemy_manager.clear_all_obstacles("run_end")
 	armoury_cache_manager.clear_all_caches("run_end")
 	survivor_rescue_manager.clear_all_rescues("run_end")
+	run_stats["final_distance"] = int(distance_travelled)
+	run_stats["route_type_id"] = route_type_id
+	run_stats["route_type_title"] = route_type_title
+	run_stats["run_modifier_id"] = active_run_modifier_id
+	run_stats["run_modifier_title"] = active_run_modifier_title
+	run_stats["hero_used"] = String(GameManager.current_run_context.get("hero_id", ""))
+	run_stats["specialists_rescued"] = rescued_specialists.duplicate()
+	var report_score: int = int(distance_travelled) + int(run_stats["kills"]) * 2 + int(run_stats["bosses_defeated"]) * 75 + int(run_stats["survivors_rescued"]) * 8 + int(run_stats["pickups_collected"]) * 5 + int(run_stats["gates_chosen"]) * 4
 	var summary := {
 		"victory": victory,
 		"distance": int(distance_travelled),
-		"coins_earned": run_stats["coins_earned"],
+		"coins_earned": max(int(run_stats["coins_earned"]), int(coins)),
 		"kills": run_stats["kills"],
 		"boss_kills": run_stats["boss_kills"],
+		"bosses_defeated": run_stats["bosses_defeated"],
 		"obstacles_destroyed": run_stats["obstacles_destroyed"],
 		"armoury_caches_destroyed": run_stats["armoury_caches_destroyed"],
 		"survivor_rescues_completed": run_stats["survivor_rescues_completed"],
 		"survivors_rescued": run_stats["survivors_rescued"],
+		"soldiers_rescued": run_stats["survivors_rescued"],
+		"pickups_collected": run_stats["pickups_collected"],
+		"gates_chosen": run_stats["gates_chosen"],
+		"mini_objectives_completed": run_stats["mini_objectives_completed"],
 		"final_soldiers": squad_manager.get_soldier_count(),
 		"route_choice": latest_route_choice_title,
-		"route_reward_multiplier": route_reward_multiplier
+		"route_reward_multiplier": route_reward_multiplier,
+		"route_type_id": route_type_id,
+		"route_type_title": route_type_title,
+		"run_modifier_id": active_run_modifier_id,
+		"run_modifier_title": active_run_modifier_title,
+		"hero_used": run_stats["hero_used"],
+		"score": report_score,
+		"new_best_distance": int(distance_travelled) > int(SaveManager.save_data.get("stats", {}).get("best_distance", 0)),
+		"new_best_coins": int(run_stats["coins_earned"]) > int(SaveManager.save_data.get("stats", {}).get("highest_coins_in_run", 0)),
+		"is_daily": String(GameManager.current_run_context.get("mode", "standard")) == "daily"
 	}
+	current_run_summary = summary.duplicate(true)
 	GameManager.end_run(victory, summary)
 	run_ended.emit(victory)
 	ui_manager.show_end_screen(victory, summary)
+
+func _apply_run_context() -> void:
+	clear_post_boss_choice_state()
+	_setup_selected_hero()
+	var route_def: Dictionary = GameManager.get_route_type_def(String(GameManager.current_run_context.get("route_type_id", "balanced_route")))
+	_apply_route_type(String(GameManager.current_run_context.get("route_type_id", "balanced_route")), route_def)
+	var modifier_id: String = String(GameManager.current_run_context.get("run_modifier_id", ""))
+	if modifier_id != "":
+		_apply_run_modifier(modifier_id, GameManager.get_run_modifier_def(modifier_id))
+
+func _apply_route_type(new_route_type_id: String, route_def: Dictionary) -> void:
+	route_type_id = new_route_type_id
+	route_type_title = String(route_def.get("title", "Balanced Route"))
+	route_reward_multiplier *= max(1.0, float(route_def.get("reward_multiplier", 1.0)))
+	route_difficulty_multiplier *= max(1.0, float(route_def.get("difficulty_multiplier", 1.0)))
+	route_spawn_interval_multiplier *= clampf(float(route_def.get("spawn_interval_multiplier", 1.0)), 0.5, 1.4)
+	route_runner_weight_multiplier *= max(1.0, float(route_def.get("runner_weight_multiplier", 1.0)))
+	route_rescue_spawn_chance_bonus += max(0.0, float(route_def.get("rescue_spawn_chance_bonus", 0.0)))
+	route_rescue_spawn_distance_multiplier *= clampf(float(route_def.get("rescue_spawn_distance_multiplier", 1.0)), 0.5, 1.5)
+	route_gate_spawn_distance_multiplier *= clampf(float(route_def.get("gate_spawn_distance_multiplier", 1.0)), 0.5, 1.5)
+	route_supply_spawn_chance_bonus += max(0.0, float(route_def.get("supply_spawn_chance_bonus", 0.0)))
+	route_supply_spawn_distance_multiplier *= clampf(float(route_def.get("supply_spawn_distance_multiplier", 1.0)), 0.5, 1.5)
+	route_rarity_bonus += max(0.0, float(route_def.get("rarity_bonus", 0.0)))
+	var reward_table: String = String(route_def.get("armoury_cache_reward_table", ""))
+	if reward_table != "":
+		route_armoury_cache_reward_table = reward_table
+	run_stats["route_type_id"] = route_type_id
+	run_stats["route_type_title"] = route_type_title
+
+func _apply_run_modifier(modifier_id: String, modifier_def: Dictionary) -> void:
+	if modifier_def.is_empty():
+		return
+	active_run_modifier_id = modifier_id
+	active_run_modifier_title = String(modifier_def.get("title", modifier_id))
+	run_modifier_reward_multiplier = max(1.0, float(modifier_def.get("reward_multiplier", 1.0)))
+	run_modifier_difficulty_multiplier = max(1.0, float(modifier_def.get("difficulty_multiplier", 1.0)))
+	run_modifier_runner_weight_multiplier = max(1.0, float(modifier_def.get("runner_weight_multiplier", 1.0)))
+	scroll_speed *= max(0.7, float(modifier_def.get("scroll_speed_multiplier", 1.0)))
+	if bool(modifier_def.get("weaken_barricade_on_start", false)):
+		barricade_manager.damage_active_barricade(float(modifier_def.get("starting_barricade_damage", 35.0)))
+	run_stats["run_modifier_id"] = active_run_modifier_id
+	run_stats["run_modifier_title"] = active_run_modifier_title
+
+func _setup_selected_hero() -> void:
+	selected_hero_id = String(GameManager.current_run_context.get("hero_id", SaveManager.save_data.get("selected_hero", "")))
+	selected_hero_def = GameManager.get_hero_def(selected_hero_id)
+	hero_active = false
+	hero_time_remaining = 0.0
+	hero_cooldown_remaining = 0.0
+	hero_ultimate_used = false
+	if selected_hero_def.is_empty():
+		selected_hero_id = ""
+		hero_uses_remaining = 0
+		hero_ultimate_ready = false
+		return
+	hero_uses_remaining = int(selected_hero_def.get("uses_per_run", 1))
+	hero_ultimate_ready = bool(selected_hero_def.get("ultimate_enabled", true))
+	active_mini_objective = {}
+	mini_objective_label = ""
+	next_mini_objective_distance = 45.0
+	rescued_specialists.clear()
+
+func _update_hero_state(delta: float) -> void:
+	if selected_hero_def.is_empty():
+		return
+	if hero_cooldown_remaining > 0.0:
+		hero_cooldown_remaining = max(hero_cooldown_remaining - delta, 0.0)
+	if hero_active:
+		hero_time_remaining = max(hero_time_remaining - delta, 0.0)
+		if hero_time_remaining <= 0.0:
+			hero_active = false
+			if hero_avatar != null and is_instance_valid(hero_avatar):
+				hero_avatar.queue_free()
+			hero_avatar = null
+			ui_manager.show_status_message("%s WITHDRAWN" % String(selected_hero_def.get("name", "HERO")).to_upper(), Color("b9d5ff"))
+
+func call_selected_hero() -> bool:
+	if selected_hero_def.is_empty() or hero_active or hero_cooldown_remaining > 0.0 or hero_uses_remaining <= 0:
+		return false
+	var hero_script: Script = load("res://scripts/gameplay/HeroAvatar.gd")
+	if hero_script == null:
+		push_error("Hero spawn failed for %s: HeroAvatar script missing." % selected_hero_id)
+		return false
+	hero_avatar = Node2D.new()
+	hero_avatar.set_script(hero_script)
+	add_child(hero_avatar)
+	hero_avatar.initialize(self, selected_hero_id, selected_hero_def)
+	if not is_instance_valid(hero_avatar) or not hero_avatar.is_visible_in_tree():
+		push_error("Hero spawn failed for %s: instance is not visible in the gameplay tree." % selected_hero_id)
+		if hero_avatar != null and is_instance_valid(hero_avatar):
+			hero_avatar.queue_free()
+		hero_avatar = null
+		return false
+	hero_active = true
+	hero_uses_remaining -= 1
+	hero_time_remaining = float(selected_hero_def.get("duration", 8.0)) + UpgradeManager.get_upgrade_value("hero_duration")
+	hero_cooldown_remaining = max(1.0, float(selected_hero_def.get("cooldown", 18.0)) - UpgradeManager.get_upgrade_value("hero_cooldown"))
+	hero_ultimate_used = false
+	run_stats["hero_used"] = selected_hero_id
+	var hero_effect: String = String(selected_hero_def.get("call_in_effect", ""))
+	match hero_effect:
+		"fire_rate_boost":
+			squad_manager.apply_reward_boost("fire_rate_boost", float(selected_hero_def.get("power", 0.35)) + UpgradeManager.get_upgrade_value("hero_power"))
+		"barricade_repair":
+			barricade_manager.repair_active_barricade(float(selected_hero_def.get("power", 40.0)) + UpgradeManager.get_upgrade_value("hero_power") * 20.0)
+		"damage_boost":
+			squad_manager.apply_reward_boost("damage_boost", float(selected_hero_def.get("power", 0.3)) + UpgradeManager.get_upgrade_value("hero_power"))
+	ui_manager.show_status_message("%s DEPLOYED" % String(selected_hero_def.get("name", "HERO")).to_upper(), Color("9ee3ff"))
+	return true
+
+func trigger_hero_ultimate() -> bool:
+	if selected_hero_def.is_empty() or not hero_active or hero_ultimate_used or not hero_ultimate_ready:
+		return false
+	hero_ultimate_used = true
+	var ultimate_effect: String = String(selected_hero_def.get("ultimate_effect", ""))
+	match ultimate_effect:
+		"squad_overdrive":
+			squad_manager.apply_reward_boost("damage_boost", float(selected_hero_def.get("ultimate_power", 0.45)) + UpgradeManager.get_upgrade_value("hero_power"))
+			squad_manager.apply_reward_boost("fire_rate_boost", float(selected_hero_def.get("ultimate_power", 0.45)) + UpgradeManager.get_upgrade_value("hero_power"))
+		"full_repair":
+			barricade_manager.repair_active_barricade(9999.0)
+			barricade_manager.reset_cooldown()
+		"grenade_volley":
+			var blast_damage: float = float(selected_hero_def.get("ultimate_power", 36.0)) + UpgradeManager.get_upgrade_value("hero_power") * 25.0
+			var targets: Array = enemy_manager.get_enemies_sorted_from(squad_manager.get_anchor_position(), 520.0)
+			for target in targets.slice(0, 3):
+				if not is_instance_valid(target):
+					continue
+				enemy_manager.damage_enemies_in_radius(target.global_position, 48.0, blast_damage)
+				ui_manager.spawn_explosion(target.global_position, 48.0)
+			AudioManager.play_sfx("explosion")
+	ui_manager.show_status_message("%s ULTIMATE" % String(selected_hero_def.get("name", "HERO")).to_upper(), Color("ffd166"))
+	return true
+
+func _update_mini_objective(delta: float) -> void:
+	if active_mini_objective.is_empty():
+		if distance_travelled >= next_mini_objective_distance:
+			_start_next_mini_objective()
+		return
+	active_mini_objective["time_remaining"] = max(float(active_mini_objective.get("time_remaining", 0.0)) - delta, 0.0)
+	var time_remaining: float = float(active_mini_objective.get("time_remaining", 0.0))
+	var objective_type: String = String(active_mini_objective.get("type", "timer_only"))
+	if objective_type.ends_with("_count"):
+		mini_objective_label = "%s %d/%d (%.1fs)" % [
+			String(active_mini_objective.get("label", "Objective")),
+			int(active_mini_objective.get("progress", 0)),
+			int(active_mini_objective.get("target", 1)),
+			time_remaining
+		]
+	else:
+		mini_objective_label = "%s (%.1fs)" % [String(active_mini_objective.get("label", "Objective")), time_remaining]
+	if objective_type.ends_with("_count") and int(active_mini_objective.get("progress", 0)) >= int(active_mini_objective.get("target", 1)):
+		_complete_active_mini_objective()
+		return
+	if time_remaining > 0.0:
+		return
+	if objective_type.ends_with("_count"):
+		ui_manager.show_status_message("MINI OBJECTIVE FAILED", Color("ff8f6b"))
+		active_mini_objective = {}
+		mini_objective_label = ""
+		next_mini_objective_distance = distance_travelled + 70.0
+		return
+	_complete_active_mini_objective()
+
+func _complete_active_mini_objective() -> void:
+	var reward_value: int = int(active_mini_objective.get("reward_coins", 20))
+	add_coins(reward_value)
+	register_mini_objective_completed(String(active_mini_objective.get("label", "Mini Objective Complete")))
+	ui_manager.show_status_message("MINI OBJECTIVE COMPLETE", Color("7be495"))
+	active_mini_objective = {}
+	mini_objective_label = ""
+	next_mini_objective_distance = distance_travelled + 95.0
+
+func _start_next_mini_objective() -> void:
+	var template_index: int = int(run_stats["mini_objectives_completed"]) % mini_objective_templates.size()
+	active_mini_objective = mini_objective_templates[template_index].duplicate(true)
+	if String(active_mini_objective.get("type", "")).ends_with("_count"):
+		active_mini_objective["progress"] = 0
+		mini_objective_label = "%s 0/%d (%.1fs)" % [
+			String(active_mini_objective.get("label", "Objective")),
+			int(active_mini_objective.get("target", 1)),
+			float(active_mini_objective.get("time_remaining", 0.0))
+		]
+	else:
+		mini_objective_label = "%s (%.1fs)" % [String(active_mini_objective.get("label", "Objective")), float(active_mini_objective.get("time_remaining", 0.0))]
+	ui_manager.show_status_message("MINI OBJECTIVE: %s" % String(active_mini_objective.get("label", "Objective")).to_upper(), Color("ffd166"))
+
+func _advance_active_mini_objective(objective_type: String, amount: int) -> void:
+	if active_mini_objective.is_empty() or String(active_mini_objective.get("type", "")) != objective_type:
+		return
+	active_mini_objective["progress"] = int(active_mini_objective.get("progress", 0)) + max(amount, 0)
+
+func unlock_specialist(specialist_id: String) -> bool:
+	if specialist_id == "":
+		return false
+	var specialists_save: Dictionary = SaveManager.save_data.get("specialists", {})
+	var unlocked: Array = specialists_save.get("unlocked", [])
+	if not unlocked.has(specialist_id):
+		unlocked.append(specialist_id)
+		specialists_save["unlocked"] = unlocked
+		SaveManager.save_data["specialists"] = specialists_save
+	var matching_hero: Dictionary = GameManager.get_hero_def(specialist_id)
+	if not matching_hero.is_empty():
+		var heroes_save: Dictionary = SaveManager.save_data.get("heroes", {})
+		var unlocked_heroes: Array = heroes_save.get("unlocked", [])
+		if not unlocked_heroes.has(specialist_id):
+			unlocked_heroes.append(specialist_id)
+			heroes_save["unlocked"] = unlocked_heroes
+			SaveManager.save_data["heroes"] = heroes_save
+	if rescued_specialists.has(specialist_id):
+		return false
+	rescued_specialists.append(specialist_id)
+	MissionManager.increment_progress("unlock_specialist", 1)
+	var specialist_def: Dictionary = GameManager.game_config.get("specialists", {}).get(specialist_id, {})
+	var bonus_type: String = String(specialist_def.get("bonus_type", ""))
+	match bonus_type:
+		"heal":
+			squad_manager.add_role_soldiers("medic", int(specialist_def.get("bonus_value", 1)), true, max_squad_size)
+		"fire_rate":
+			squad_manager.apply_reward_boost("fire_rate_boost", float(specialist_def.get("bonus_value", 0.2)))
+		"repair":
+			barricade_manager.repair_active_barricade(float(specialist_def.get("bonus_value", 30.0)))
+		"damage":
+			squad_manager.apply_reward_boost("damage_boost", float(specialist_def.get("bonus_value", 0.25)))
+		"explosive":
+			weapon_manager.apply_special_ammo("explosive", float(specialist_def.get("bonus_value", 8.0)))
+	ui_manager.show_status_message("%s JOINED THE CONVOY" % String(specialist_def.get("name", specialist_id)).to_upper(), Color("ffe08a"))
+	SaveManager.save_game()
+	return true

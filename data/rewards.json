@@ -1,29 +1,36 @@
 {
   "rewards": {
-    "coins_small": {"type": "coins", "value": 8, "color": "#f5d142", "label": "+Coins"},
-    "coins_large": {"type": "coins", "value": 18, "color": "#f09c35", "label": "Coin Cache"},
-    "add_soldier": {"type": "add_soldier", "value": 1, "color": "#68d070", "label": "+Soldier"},
-    "rescue_survivors": {"type": "add_soldiers", "value": 2, "color": "#78e6a0", "label": "Rescue Survivors"},
-    "fire_rate_boost": {"type": "fire_rate_boost", "value": 0.35, "color": "#70c8ff", "label": "Rapid Fire"},
-    "ammo_cache": {"type": "fire_rate_boost", "value": 0.5, "color": "#5fc0ff", "label": "Ammo Cache"},
-    "damage_boost": {"type": "damage_boost", "value": 0.4, "color": "#ff8080", "label": "Damage Up"},
-    "armoury_truck": {"type": "damage_boost", "value": 0.65, "color": "#ffb266", "label": "Armoury Truck"},
-    "temporary_shield": {"type": "temporary_shield", "value": 60, "color": "#82f0ff", "label": "Shield"},
-    "medical_supplies": {"type": "heal_soldiers", "value": 2, "color": "#8cffb2", "label": "Medical Supplies"},
-    "barricade_parts": {"type": "barricade_repair", "value": 40, "color": "#b8d2ff", "label": "Barricade Parts"},
-    "cooldown_radio": {"type": "barricade_cooldown_reset", "value": 1, "color": "#98d8ff", "label": "Repair Radio"},
-    "weapon_pickup": {"type": "weapon_pickup", "value": 1, "color": "#ca8cff", "label": "Weapon Crate"},
-    "piercing_rounds": {"type": "special_ammo", "ammo_type": "piercing", "duration": 10.0, "color": "#7dc8ff", "label": "Piercing Rounds"},
-    "incendiary_rounds": {"type": "special_ammo", "ammo_type": "incendiary", "duration": 10.0, "color": "#ff8f5d", "label": "Incendiary Rounds"},
-    "explosive_rounds": {"type": "special_ammo", "ammo_type": "explosive", "duration": 9.0, "color": "#ffb347", "label": "Explosive Rounds"},
-    "heavy_rounds": {"type": "special_ammo", "ammo_type": "heavy", "duration": 10.0, "color": "#d7d2c8", "label": "Heavy Rounds"},
-    "armoury_coin_stash": {"type": "coins", "value": 45, "color": "#ffcf61", "label": "Cache Coins"},
-    "armoury_weapon_drop": {"type": "weapon_pickup", "value": 1, "color": "#d9a8ff", "label": "Armoury Drop"},
-    "armoury_damage_surge": {"type": "damage_boost", "value": 0.75, "color": "#ff8b6b", "label": "Damage Surge"},
-    "armoury_fire_rate_surge": {"type": "fire_rate_boost", "value": 0.65, "color": "#78d8ff", "label": "Rapid Salvo"},
-    "armoury_rescue_team": {"type": "add_soldiers", "value": 3, "color": "#7bf0a0", "label": "Rescue Team"},
-    "armoury_barricade_kit": {"type": "barricade_repair", "value": 80, "color": "#bddcff", "label": "Barricade Kit"},
-    "armoury_rare_supply": {"type": "coins", "value": 90, "color": "#ffe08a", "label": "Rare Supply"},
+    "coins_small": {"type": "coins", "value": 8, "rarity": "common", "color": "#f5d142", "label": "+Coins"},
+    "coins_large": {"type": "coins", "value": 18, "rarity": "common", "color": "#f09c35", "label": "Coin Cache"},
+    "add_soldier": {"type": "add_soldier", "value": 1, "rarity": "uncommon", "color": "#68d070", "label": "+Soldier"},
+    "rescue_survivors": {"type": "add_soldiers", "value": 2, "rarity": "rare", "color": "#78e6a0", "label": "Rescue Survivors"},
+    "fire_rate_boost": {"type": "fire_rate_boost", "value": 0.35, "rarity": "uncommon", "color": "#70c8ff", "label": "Rapid Fire"},
+    "ammo_cache": {"type": "fire_rate_boost", "value": 0.5, "rarity": "rare", "color": "#5fc0ff", "label": "Ammo Cache"},
+    "damage_boost": {"type": "damage_boost", "value": 0.4, "rarity": "uncommon", "color": "#ff8080", "label": "Damage Up"},
+    "armoury_truck": {"type": "damage_boost", "value": 0.65, "rarity": "military", "color": "#ffb266", "label": "Armoury Truck"},
+    "temporary_shield": {"type": "temporary_shield", "value": 60, "rarity": "rare", "color": "#82f0ff", "label": "Shield"},
+    "medical_supplies": {"type": "heal_soldiers", "value": 2, "rarity": "uncommon", "color": "#8cffb2", "label": "Medical Supplies"},
+    "barricade_parts": {"type": "barricade_repair", "value": 40, "rarity": "uncommon", "color": "#b8d2ff", "label": "Barricade Parts"},
+    "cooldown_radio": {"type": "barricade_cooldown_reset", "value": 1, "rarity": "rare", "color": "#98d8ff", "label": "Repair Radio"},
+    "weapon_pickup": {"type": "weapon_pickup", "value": 1, "rarity": "rare", "color": "#ca8cff", "label": "Weapon Crate"},
+    "piercing_rounds": {"type": "special_ammo", "ammo_type": "piercing", "duration": 10.0, "rarity": "rare", "color": "#7dc8ff", "label": "Piercing Rounds"},
+    "incendiary_rounds": {"type": "special_ammo", "ammo_type": "incendiary", "duration": 10.0, "rarity": "rare", "color": "#ff8f5d", "label": "Incendiary Rounds"},
+    "explosive_rounds": {"type": "special_ammo", "ammo_type": "explosive", "duration": 9.0, "rarity": "military", "color": "#ffb347", "label": "Explosive Rounds"},
+    "heavy_rounds": {"type": "special_ammo", "ammo_type": "heavy", "duration": 10.0, "rarity": "military", "color": "#d7d2c8", "label": "Heavy Rounds"},
+    "armoury_coin_stash": {"type": "coins", "value": 45, "rarity": "rare", "color": "#ffcf61", "label": "Cache Coins"},
+    "armoury_weapon_drop": {"type": "weapon_pickup", "value": 1, "rarity": "military", "color": "#d9a8ff", "label": "Armoury Drop"},
+    "armoury_damage_surge": {"type": "damage_boost", "value": 0.75, "rarity": "military", "color": "#ff8b6b", "label": "Damage Surge"},
+    "armoury_fire_rate_surge": {"type": "fire_rate_boost", "value": 0.65, "rarity": "military", "color": "#78d8ff", "label": "Rapid Salvo"},
+    "armoury_rescue_team": {"type": "add_soldiers", "value": 3, "rarity": "rare", "color": "#7bf0a0", "label": "Rescue Team"},
+    "armoury_barricade_kit": {"type": "barricade_repair", "value": 80, "rarity": "military", "color": "#bddcff", "label": "Barricade Kit"},
+    "armoury_rare_supply": {"type": "coins", "value": 90, "rarity": "legendary", "color": "#ffe08a", "label": "Rare Supply"},
+    "heavy_reinforcement": {"type": "add_role_soldier", "role_id": "heavy_gunner", "value": 1, "rarity": "military", "color": "#c0cad4", "label": "Heavy Gunner"},
+    "medic_reinforcement": {"type": "add_role_soldier", "role_id": "medic", "value": 1, "rarity": "rare", "color": "#8ddcb5", "label": "Field Medic"},
+    "shotgunner_reinforcement": {"type": "add_role_soldier", "role_id": "shotgunner", "value": 1, "rarity": "rare", "color": "#ffd0a6", "label": "Shotgunner"},
+    "sniper_reinforcement": {"type": "add_role_soldier", "role_id": "sniper", "value": 1, "rarity": "military", "color": "#d9cbff", "label": "Sniper"},
+    "unlock_doc_mercer": {"type": "unlock_specialist", "specialist_id": "doc_mercer", "rarity": "legendary", "color": "#b4ffde", "label": "Doc Mercer"},
+    "unlock_sgt_briggs": {"type": "unlock_specialist", "specialist_id": "sgt_briggs", "rarity": "legendary", "color": "#dfe7ff", "label": "Sgt Briggs"},
+    "unlock_mara_hale": {"type": "unlock_specialist", "specialist_id": "mara_hale", "rarity": "legendary", "color": "#ffb38a", "label": "Mara Hale"},
     "risk_gate_supply": {
       "type": "risk_gate",
       "value": 3,
@@ -34,7 +41,7 @@
       "spawn_enemy_count": 3,
       "spawn_pool": ["runner", "runner", "exploder"]
     },
-    "boss_relic": {"type": "extend_distance", "value": 90, "color": "#7de3ff", "label": "+90m Route"}
+    "boss_relic": {"type": "extend_distance", "value": 90, "rarity": "legendary", "color": "#7de3ff", "label": "+90m Route"}
   },
   "obstacle_reward_table": ["coins_small", "coins_small", "coins_large", "add_soldier", "rescue_survivors", "fire_rate_boost", "damage_boost", "medical_supplies", "barricade_parts", "temporary_shield", "weapon_pickup", "piercing_rounds", "incendiary_rounds", "explosive_rounds", "heavy_rounds"],
   "armoury_cache_reward_tables": {
@@ -48,8 +55,11 @@
       {"reward_id": "explosive_rounds", "weight": 1.2},
       {"reward_id": "heavy_rounds", "weight": 1.0},
       {"reward_id": "armoury_rescue_team", "weight": 1.5},
+      {"reward_id": "heavy_reinforcement", "weight": 0.8},
+      {"reward_id": "medic_reinforcement", "weight": 0.8},
       {"reward_id": "armoury_barricade_kit", "weight": 1.5},
-      {"reward_id": "armoury_rare_supply", "weight": 0.5}
+      {"reward_id": "armoury_rare_supply", "weight": 0.5},
+      {"reward_id": "unlock_doc_mercer", "weight": 0.15}
     ],
     "supply_route": [
       {"reward_id": "armoury_coin_stash", "weight": 2.0},
@@ -60,8 +70,10 @@
       {"reward_id": "incendiary_rounds", "weight": 1.8},
       {"reward_id": "explosive_rounds", "weight": 1.8},
       {"reward_id": "heavy_rounds", "weight": 1.6},
+      {"reward_id": "heavy_reinforcement", "weight": 1.1},
       {"reward_id": "armoury_barricade_kit", "weight": 1.2},
-      {"reward_id": "armoury_rare_supply", "weight": 0.8}
+      {"reward_id": "armoury_rare_supply", "weight": 0.8},
+      {"reward_id": "unlock_sgt_briggs", "weight": 0.2}
     ]
   }
 }

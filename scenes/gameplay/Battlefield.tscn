@@ -51,7 +51,7 @@ script = ExtResource("12")
 script = ExtResource("13")
 
 [node name="Camera2D" type="Camera2D" parent="."]
-position = Vector2(360, 560)
+position = Vector2(540, 560)
 enabled = true
 
 [node name="UI" parent="." instance=ExtResource("8")]

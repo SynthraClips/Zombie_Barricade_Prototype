@@ -1,7 +1,15 @@
 {
-  "spawn_distance_interval": 32.0,
-  "spawn_start_distance": 18.0,
-  "spawn_y": -150.0,
+  "spawn_distance_interval": 48.0,
+  "spawn_distance_min": 42.0,
+  "spawn_distance_max": 58.0,
+  "gate_row_frequency": 1.0,
+  "spawn_start_distance": 28.0,
+  "initial_gate_free_distance": 28.0,
+  "minimum_reaction_distance": 42.0,
+  "gate_width": 120.0,
+  "lane_margin": 14.0,
+  "max_gates_per_row": 3,
+  "spawn_y": -280.0,
   "damage_per_value_step": 30.0,
   "damage_per_value_step_by_distance": [
     {"distance": 0.0, "damage_per_value_step": 30.0},

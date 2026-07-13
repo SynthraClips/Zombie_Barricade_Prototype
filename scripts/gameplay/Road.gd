@@ -1,10 +1,10 @@
 extends Node2D
 
-const SCREEN_WIDTH := 720.0
+const SCREEN_WIDTH := 1080.0
 const SCREEN_HEIGHT := 1280.0
-const ROAD_CENTER_X := 360.0
-const ROAD_TOP_HALF_WIDTH := 165.0
-const ROAD_BOTTOM_HALF_WIDTH := 300.0
+const ROAD_CENTER_X := 540.0
+const ROAD_TOP_HALF_WIDTH := 250.0
+const ROAD_BOTTOM_HALF_WIDTH := 450.0
 const ROAD_MARGIN := 40.0
 
 var line_offset := 0.0
@@ -25,35 +25,48 @@ func clamp_lane_x(x: float, y: float, padding: float = ROAD_MARGIN) -> float:
 	var edges: Vector2 = get_lane_edges_at_y(y)
 	return clampf(x, edges.x + padding, edges.y - padding)
 
-func screen_x_to_lane_x(screen_x: float, y: float) -> float:
-	return clamp_lane_x(screen_x, y)
+func screen_x_to_lane_x(screen_x: float, y: float, padding: float = ROAD_MARGIN) -> float:
+	return clamp_lane_x(screen_x, y, padding)
 
 func get_squad_y() -> float:
 	return SCREEN_HEIGHT - 170.0
 
+func get_center_x() -> float:
+	return ROAD_CENTER_X
+
 func get_spawn_y() -> float:
 	return -150.0
 
+func get_forward_direction() -> Vector2:
+	return Vector2.UP
+
+func get_usable_road_width(y: float) -> float:
+	var edges := get_lane_edges_at_y(y)
+	return edges.y - edges.x
+
+func get_random_lane_x(y: float, padding: float = ROAD_MARGIN, random: RandomNumberGenerator = null) -> float:
+	var edges := get_lane_edges_at_y(y)
+	var left := edges.x + padding
+	var right := edges.y - padding
+	if random != null:
+		return random.randf_range(left, right)
+	return randf_range(left, right)
+
 func get_gate_row_positions(y: float, gate_count: int) -> Array[float]:
 	var edges: Vector2 = get_lane_edges_at_y(y)
-	var side_padding: float = 44.0 if gate_count <= 2 else 30.0
+	var side_padding: float = float(GameManager.gate_data.get("lane_margin", 14.0))
 	var usable_left: float = edges.x + side_padding
 	var usable_right: float = edges.y - side_padding
 	if gate_count <= 1:
 		return [ROAD_CENTER_X]
 	if gate_count == 2:
-		return [
-			lerpf(usable_left, ROAD_CENTER_X, 0.22),
-			lerpf(ROAD_CENTER_X, usable_right, 0.78)
-		]
+		var lane_width := (usable_right - usable_left) / 3.0
+		return [usable_left + lane_width * 0.5, usable_right - lane_width * 0.5]
 	if gate_count == 3:
-		return [
-			usable_left,
-			ROAD_CENTER_X,
-			usable_right
-		]
+		var lane_width := (usable_right - usable_left) / 3.0
+		return [usable_left + lane_width * 0.5, usable_left + lane_width * 1.5, usable_left + lane_width * 2.5]
 	var positions: Array[float] = []
-	for index in gate_count:
+	for index in range(gate_count):
 		var t: float = float(index + 1) / float(gate_count + 1)
 		positions.append(lerpf(usable_left, usable_right, t))
 	return positions

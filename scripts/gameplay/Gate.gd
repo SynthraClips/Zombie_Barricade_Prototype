@@ -19,12 +19,12 @@ func initialize(run: Node, manager: Node, effect: Dictionary, world_position: Ve
 	damage_progress = 0.0
 	collected = false
 	global_position = world_position
-	collision_layer = SquadManager.PICKUP_LAYER
-	collision_mask = SquadManager.COLLECTOR_LAYER
-	monitoring = true
+	# Gates remain Areas for projectile/world queries, but selection is exclusively
+	# resolved from the stable squad anchor in update_gate().
+	collision_layer = 0
+	collision_mask = 0
+	monitoring = false
 	monitorable = true
-	if not area_entered.is_connected(_on_area_entered):
-		area_entered.connect(_on_area_entered)
 
 func update_gate(delta: float) -> void:
 	if collected:
@@ -32,7 +32,10 @@ func update_gate(delta: float) -> void:
 	pulse += delta * 4.0
 	global_position += Vector2.DOWN * run_manager.scroll_speed * delta
 	queue_redraw()
-	if overlaps_area(run_manager.squad_manager.get_collector_area()) or global_position.distance_to(run_manager.squad_manager.get_anchor_position()) <= 84.0:
+	var anchor: Vector2 = run_manager.squad_manager.get_anchor_position()
+	var gate_width: float = float(GameManager.gate_data.get("gate_width", 120.0))
+	var neutral_gap: float = float(GameManager.gate_data.get("lane_margin", 14.0)) * 0.5
+	if abs(anchor.x - global_position.x) <= gate_width * 0.5 - neutral_gap and abs(anchor.y - global_position.y) <= 68.0:
 		collect()
 		return
 	if global_position.y > 1400.0:
@@ -77,17 +80,14 @@ func clear_without_collect() -> void:
 func get_effect_definition() -> Dictionary:
 	return effect_definition.duplicate(true)
 
-func _on_area_entered(area: Area2D) -> void:
-	if area == run_manager.squad_manager.get_collector_area():
-		collect()
-
 func _draw() -> void:
 	var base_color := _get_gate_color()
 	var outline: Color = base_color.lightened(0.15)
-	draw_rect(Rect2(-52, -56, 104, 112), Color(base_color, 0.18))
-	draw_rect(Rect2(-52, -56, 104, 112), outline, false, 5.0)
-	draw_rect(Rect2(-38, -56, 8, 112), outline)
-	draw_rect(Rect2(30, -56, 8, 112), outline)
+	var half_width: float = float(GameManager.gate_data.get("gate_width", 120.0)) * 0.5
+	draw_rect(Rect2(-half_width, -56, half_width * 2.0, 112), Color(base_color, 0.18))
+	draw_rect(Rect2(-half_width, -56, half_width * 2.0, 112), outline, false, 5.0)
+	draw_rect(Rect2(-half_width + 14.0, -56, 8, 112), outline)
+	draw_rect(Rect2(half_width - 22.0, -56, 8, 112), outline)
 	draw_circle(Vector2.ZERO, 18.0 + sin(pulse) * 3.0, Color(base_color, 0.25))
 	var step_damage: float = max(0.01, gate_manager.get_damage_per_value_step(effect_definition))
 	var progress_ratio: float = clampf(damage_progress / step_damage, 0.0, 1.0)

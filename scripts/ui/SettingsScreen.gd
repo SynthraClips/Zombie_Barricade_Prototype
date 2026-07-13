@@ -25,6 +25,7 @@ func _on_hit_flash_toggled(toggled_on: bool) -> void:
 
 func _on_volume_changed(value: float) -> void:
 	SaveManager.save_data["settings"]["sfx_volume"] = value
+	AudioManager.set_sfx_volume(value)
 	SaveManager.save_game()
 
 func _on_back_pressed() -> void:

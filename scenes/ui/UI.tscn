@@ -94,6 +94,72 @@ layout_mode = 2
 theme_override_font_sizes/font_size = 19
 text = "Ammo"
 
+[node name="Hero" type="Label" parent="HUD/Margin/VBox"]
+visible = false
+layout_mode = 2
+custom_minimum_size = Vector2(0, 34)
+theme_override_font_sizes/font_size = 18
+text = "Hero"
+
+[node name="StartHint" type="Label" parent="HUD"]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_left = 210.0
+offset_top = 18.0
+offset_right = -18.0
+offset_bottom = 100.0
+grow_horizontal = 2
+theme_override_colors/font_color = Color(0.85, 0.94, 1, 1)
+theme_override_font_sizes/font_size = 18
+text = "Move with mouse  •  Barricade: B  •  Call Hero: H  •  Ultimate: U"
+horizontal_alignment = 2
+autowrap_mode = 2
+mouse_filter = 2
+
+[node name="ActionPanel" type="PanelContainer" parent="HUD"]
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -254.0
+offset_top = -202.0
+offset_right = -16.0
+offset_bottom = -16.0
+grow_horizontal = 0
+grow_vertical = 0
+
+[node name="Margin" type="MarginContainer" parent="HUD/ActionPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 8
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 8
+theme_override_constants/margin_bottom = 8
+
+[node name="Buttons" type="VBoxContainer" parent="HUD/ActionPanel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="DeployBarricade" type="Button" parent="HUD/ActionPanel/Margin/Buttons"]
+custom_minimum_size = Vector2(220, 50)
+layout_mode = 2
+tooltip_text = "Deploy the selected barricade when no barricade is active and cooldown is ready. Keyboard: B"
+text = "Deploy Barricade [B]"
+
+[node name="CallHero" type="Button" parent="HUD/ActionPanel/Margin/Buttons"]
+custom_minimum_size = Vector2(220, 50)
+layout_mode = 2
+tooltip_text = "Call the selected hero when ready. Keyboard: H"
+text = "Call Hero [H]"
+
+[node name="HeroUltimate" type="Button" parent="HUD/ActionPanel/Margin/Buttons"]
+custom_minimum_size = Vector2(220, 50)
+layout_mode = 2
+tooltip_text = "Use the selected hero's ultimate while the hero is active. Keyboard: U"
+text = "Ultimate [U]"
+
 [node name="PopupLayer" type="Control" parent="."]
 layout_mode = 3
 anchors_preset = 15
@@ -179,7 +245,9 @@ text = "Run Complete"
 
 [node name="Summary" type="Label" parent="EndPanel/VBox"]
 layout_mode = 2
+custom_minimum_size = Vector2(0, 120)
 horizontal_alignment = 1
+autowrap_mode = 2
 theme_override_font_sizes/font_size = 22
 text = "Summary"
 
@@ -190,6 +258,10 @@ text = "Play Again"
 [node name="Upgrade" type="Button" parent="EndPanel/VBox"]
 layout_mode = 2
 text = "Upgrade"
+
+[node name="Missions" type="Button" parent="EndPanel/VBox"]
+layout_mode = 2
+text = "Missions"
 
 [node name="Menu" type="Button" parent="EndPanel/VBox"]
 layout_mode = 2

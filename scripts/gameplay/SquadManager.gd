@@ -14,8 +14,8 @@ var temporary_damage_bonus := 0.0
 var temporary_fire_rate_bonus := 0.0
 var damage_boost_time := 0.0
 var fire_rate_boost_time := 0.0
-var formation_center_x := 360.0
-var formation_target_x := 360.0
+var formation_center_x := 540.0
+var formation_target_x := 540.0
 var formation_y := 1110.0
 var movement_smoothing := 9.0
 var touch_input_active := false
@@ -32,13 +32,27 @@ func setup(run: Node) -> void:
 	soldiers.clear()
 	_ensure_collector_area()
 	formation_y = run_manager.road.get_squad_y()
-	formation_center_x = run_manager.road.clamp_lane_x(360.0, formation_y)
+	formation_center_x = run_manager.road.clamp_lane_x(run_manager.road.get_center_x(), formation_y, _formation_boundary_padding())
 	formation_target_x = formation_center_x
 	support_role_id = GameManager.get_support_role_id()
-	var starting: int = min(run_manager.max_squad_size, GameManager.get_starting_soldier_count())
-	for i in starting:
+	var base_count: int = int(GameManager.game_config.get("starting_soldiers", 3))
+	if base_count <= 0:
+		base_count = 3
+	var bonus_count: int = int(UpgradeManager.get_upgrade_value("starting_soldiers"))
+	var starting_count: int = base_count + bonus_count
+	if starting_count < 3:
+		starting_count = 3
+	var starting: int = starting_count
+	if starting > run_manager.max_squad_size:
+		starting = run_manager.max_squad_size
+	for i in range(starting):
 		var role_id := support_role_id if i == 0 else "rifleman"
-		add_soldier(role_id)
+		_spawn_soldier(role_id)
+	if soldiers.is_empty():
+		var fallback_count: int = 3 if run_manager.max_squad_size >= 3 else run_manager.max_squad_size
+		for i in range(fallback_count):
+			_spawn_soldier("rifleman")
+	run_manager.on_squad_count_changed()
 	_apply_formation(true)
 
 func update_squad(delta: float) -> void:
@@ -51,8 +65,9 @@ func update_squad(delta: float) -> void:
 		if fire_rate_boost_time <= 0.0:
 			temporary_fire_rate_bonus = 0.0
 	formation_y = run_manager.road.get_squad_y()
-	formation_target_x = run_manager.road.clamp_lane_x(formation_target_x, formation_y)
-	formation_center_x = lerpf(formation_center_x, formation_target_x, clampf(delta * movement_smoothing, 0.0, 1.0))
+	formation_target_x = run_manager.road.clamp_lane_x(formation_target_x, formation_y, _formation_boundary_padding())
+	var lateral_speed: float = float(GameManager.game_config.get("squad_lateral_speed", 520.0))
+	formation_center_x = move_toward(formation_center_x, formation_target_x, lateral_speed * delta)
 	_apply_formation()
 	_apply_role_support(delta)
 	for soldier in soldiers:
@@ -61,18 +76,18 @@ func update_squad(delta: float) -> void:
 func add_soldier(role_id: String = "rifleman", allow_overcap: bool = false, overcap_limit: int = -1) -> bool:
 	if not _can_add_soldier(allow_overcap, overcap_limit):
 		return false
-	var soldier: Node = soldier_scene.instantiate()
-	add_child(soldier)
-	soldier.initialize(self, role_id)
-	soldiers.append(soldier)
+	_spawn_soldier(role_id)
 	_apply_formation(true)
 	run_manager.on_squad_count_changed()
 	return true
 
 func add_soldiers(amount: int, allow_overcap: bool = false, overcap_limit: int = -1) -> int:
+	return add_role_soldiers("rifleman", amount, allow_overcap, overcap_limit)
+
+func add_role_soldiers(role_id: String, amount: int, allow_overcap: bool = false, overcap_limit: int = -1) -> int:
 	var added := 0
-	for index in amount:
-		if add_soldier("rifleman", allow_overcap, overcap_limit):
+	for index in range(amount):
+		if add_soldier(role_id, allow_overcap, overcap_limit):
 			added += 1
 	if added > 0:
 		SaveManager.save_data["stats"]["soldiers_rescued"] += added
@@ -92,7 +107,7 @@ func multiply_soldiers(multiplier: int) -> int:
 
 func handle_pointer_input(screen_position: Vector2, is_touch: bool = false) -> void:
 	touch_input_active = is_touch
-	formation_target_x = run_manager.road.screen_x_to_lane_x(screen_position.x, formation_y)
+	formation_target_x = run_manager.road.screen_x_to_lane_x(screen_position.x, formation_y, _formation_boundary_padding())
 
 func release_touch_input() -> void:
 	touch_input_active = false
@@ -103,22 +118,42 @@ func get_collector_area() -> Area2D:
 func get_role_definition(role_id: String) -> Dictionary:
 	return GameManager.game_config.get("soldier_roles", {}).get(role_id, GameManager.game_config.get("soldier_roles", {}).get("rifleman", {}))
 
+func _spawn_soldier(role_id: String) -> void:
+	var soldier: Node = soldier_scene.instantiate()
+	add_child(soldier)
+	soldier.initialize(self, role_id)
+	soldiers.append(soldier)
+
 func _apply_formation(snap: bool = false) -> void:
-	var width: float = min(220.0, 120.0 + float(max(soldiers.size() - 1, 0)) * 26.0)
 	var count: int = soldiers.size()
-	for i in count:
+	var gate_width: float = float(GameManager.gate_data.get("gate_width", 120.0))
+	var estimated_soldier_width := 24.0
+	var max_center_span: float = max(0.0, gate_width * 0.9 - estimated_soldier_width)
+	var columns: int = mini(6, maxi(1, ceili(sqrt(float(count)))))
+	var spacing_x: float = min(18.0, max_center_span / float(maxi(columns - 1, 1)))
+	var spacing_y := 22.0
+	var width: float = float(maxi(columns - 1, 0)) * spacing_x
+	for i in range(count):
 		var soldier: Node = soldiers[i]
-		var t: float = 0.0 if count == 1 else float(i) / float(count - 1)
-		var target_position := Vector2(formation_center_x + lerpf(-width * 0.5, width * 0.5, t), formation_y + 24.0 * sin(t * PI))
+		var row: int = i / columns
+		var column: int = i % columns
+		var row_count: int = mini(columns, count - row * columns)
+		var row_width: float = float(maxi(row_count - 1, 0)) * spacing_x
+		var target_position := Vector2(formation_center_x - row_width * 0.5 + column * spacing_x, formation_y + row * spacing_y)
 		if snap:
 			soldier.position = target_position
 		else:
 			soldier.position = soldier.position.lerp(target_position, 0.22)
+	var row_count_total: int = ceili(float(count) / float(columns)) if count > 0 else 1
+	var formation_depth: float = float(maxi(row_count_total - 1, 0)) * spacing_y
 	if collector_area != null:
-		collector_area.position = Vector2(formation_center_x, formation_y - 10.0)
+		collector_area.position = Vector2(formation_center_x, formation_y + formation_depth * 0.5)
 	if collector_shape != null:
 		var shape: RectangleShape2D = collector_shape.shape
-		shape.size = Vector2(max(92.0, width + 70.0), 86.0)
+		shape.size = Vector2(max(92.0, width + 24.0), max(86.0, formation_depth + 36.0))
+
+func _formation_boundary_padding() -> float:
+	return float(GameManager.gate_data.get("gate_width", 120.0)) * 0.45 + 2.0
 
 func _ensure_collector_area() -> void:
 	collector_area = Area2D.new()
@@ -138,7 +173,7 @@ func _remove_soldiers_internal(amount: int, allow_zero: bool) -> int:
 	var minimum_count: int = 0 if allow_zero else 1
 	var removable: int = max(0, soldiers.size() - minimum_count)
 	var removed := 0
-	for index in min(amount, removable):
+	for index in range(min(amount, removable)):
 		if soldiers.size() <= minimum_count:
 			break
 		var soldier: Node = soldiers.pop_back()
@@ -153,57 +188,64 @@ func get_soldier_count() -> int:
 	return soldiers.size()
 
 func get_anchor_position() -> Vector2:
-	if soldiers.is_empty():
-		return Vector2(formation_center_x, formation_y)
-	var total: Vector2 = Vector2.ZERO
-	for soldier in soldiers:
-		total += soldier.global_position
-	return total / soldiers.size()
+	return Vector2(formation_center_x, formation_y)
 
 func get_primary_target_for(soldier_position: Vector2, weapon_range: float) -> Node2D:
 	if not run_manager.should_fire():
 		return null
 	var aim_position: Vector2 = run_manager.get_aim_position()
 	var auto_fire_enabled: bool = run_manager.is_auto_fire_enabled()
+	var aim_snap_range := 120.0
+	var range_is_limited: bool = is_finite(weapon_range)
 	var best_target: Node2D
 	var best_score := INF
 	for enemy in run_manager.enemy_manager.enemies:
 		if not is_instance_valid(enemy):
 			continue
-		if not auto_fire_enabled and soldier_position.distance_to(enemy.global_position) > weapon_range:
+		if range_is_limited and soldier_position.distance_to(enemy.global_position) > weapon_range:
 			continue
-		var score: float = soldier_position.distance_to(enemy.global_position) if auto_fire_enabled else enemy.global_position.distance_to(aim_position)
+		var score: float = soldier_position.distance_to(enemy.global_position)
+		if not auto_fire_enabled or enemy.global_position.distance_to(aim_position) <= aim_snap_range:
+			score = enemy.global_position.distance_to(aim_position)
 		if score < best_score:
 			best_score = score
 			best_target = enemy
-	var gate: Node2D = run_manager.gate_manager.get_target_gate(soldier_position, INF if auto_fire_enabled else weapon_range, Vector2.ZERO if auto_fire_enabled else aim_position)
+	var gate: Node2D = run_manager.gate_manager.get_target_gate(soldier_position, weapon_range if range_is_limited else INF, aim_position)
 	if gate != null:
-		var gate_score: float = soldier_position.distance_to(gate.global_position) if auto_fire_enabled else gate.global_position.distance_to(aim_position)
+		var gate_score: float = soldier_position.distance_to(gate.global_position)
+		if not auto_fire_enabled or gate.global_position.distance_to(aim_position) <= aim_snap_range:
+			gate_score = gate.global_position.distance_to(aim_position)
 		if gate_score < best_score:
 			best_score = gate_score
 			best_target = gate
 	for obstacle in run_manager.enemy_manager.obstacles:
 		if not is_instance_valid(obstacle):
 			continue
-		if not auto_fire_enabled and soldier_position.distance_to(obstacle.global_position) > weapon_range:
+		if range_is_limited and soldier_position.distance_to(obstacle.global_position) > weapon_range:
 			continue
-		var obstacle_score: float = soldier_position.distance_to(obstacle.global_position) if auto_fire_enabled else obstacle.global_position.distance_to(aim_position)
+		var obstacle_score: float = soldier_position.distance_to(obstacle.global_position)
+		if not auto_fire_enabled or obstacle.global_position.distance_to(aim_position) <= aim_snap_range:
+			obstacle_score = obstacle.global_position.distance_to(aim_position)
 		if obstacle_score < best_score:
 			best_score = obstacle_score
 			best_target = obstacle
-	var cache: Node2D = run_manager.armoury_cache_manager.get_target_cache(soldier_position, INF if auto_fire_enabled else weapon_range, Vector2.ZERO if auto_fire_enabled else aim_position, auto_fire_enabled)
+	var cache: Node2D = run_manager.armoury_cache_manager.get_target_cache(soldier_position, weapon_range if range_is_limited else INF, Vector2.ZERO if auto_fire_enabled else aim_position, auto_fire_enabled)
 	if cache != null:
-		var cache_score: float = soldier_position.distance_to(cache.global_position) if auto_fire_enabled else cache.global_position.distance_to(aim_position)
+		var cache_score: float = soldier_position.distance_to(cache.global_position)
+		if not auto_fire_enabled or cache.global_position.distance_to(aim_position) <= aim_snap_range:
+			cache_score = cache.global_position.distance_to(aim_position)
 		if (not auto_fire_enabled and cache_score < best_score) or (auto_fire_enabled and best_target == null):
 			best_target = cache
 			best_score = cache_score
-	var rescue: Node2D = run_manager.survivor_rescue_manager.get_target_rescue(soldier_position, INF if auto_fire_enabled else weapon_range, Vector2.ZERO if auto_fire_enabled else aim_position, auto_fire_enabled)
+	var rescue: Node2D = run_manager.survivor_rescue_manager.get_target_rescue(soldier_position, weapon_range if range_is_limited else INF, Vector2.ZERO if auto_fire_enabled else aim_position, auto_fire_enabled)
 	if rescue != null:
-		var rescue_score: float = soldier_position.distance_to(rescue.global_position) if auto_fire_enabled else rescue.global_position.distance_to(aim_position)
+		var rescue_score: float = soldier_position.distance_to(rescue.global_position)
+		if not auto_fire_enabled or rescue.global_position.distance_to(aim_position) <= aim_snap_range:
+			rescue_score = rescue.global_position.distance_to(aim_position)
 		if (not auto_fire_enabled and rescue_score < best_score) or (auto_fire_enabled and best_target == null):
 			best_target = rescue
 			best_score = rescue_score
-	if best_target != null and (auto_fire_enabled or best_score <= 110.0):
+	if best_target != null:
 		return best_target
 	return null
 
@@ -261,12 +303,14 @@ func _can_add_soldier(allow_overcap: bool, overcap_limit: int) -> bool:
 func _apply_role_support(delta: float) -> void:
 	var counts: Dictionary = get_role_counts()
 	var engineer_count: int = int(counts.get("engineer", 0))
+	var medic_count: int = int(counts.get("medic", 0))
 	if engineer_count <= 0:
-		return
-	var barricade: Node = run_manager.barricade_manager.active_barricade
-	if barricade == null or not is_instance_valid(barricade):
-		return
-	var base_repair: float = float(get_role_definition("engineer").get("barricade_repair_per_second", 0.0))
-	if base_repair <= 0.0:
-		return
-	barricade.repair((base_repair + UpgradeManager.get_upgrade_value("barricade_auto_repair")) * engineer_count * delta, true)
+		pass
+	else:
+		var barricade: Node = run_manager.barricade_manager.active_barricade
+		if barricade != null and is_instance_valid(barricade):
+			var base_repair: float = float(get_role_definition("engineer").get("barricade_repair_per_second", 0.0))
+			if base_repair > 0.0:
+				barricade.repair((base_repair + UpgradeManager.get_upgrade_value("barricade_auto_repair")) * engineer_count * delta, true)
+	if medic_count > 0 and soldiers.size() < run_manager.max_squad_size and randf() < delta * 0.08 * medic_count:
+		add_soldier("rifleman")

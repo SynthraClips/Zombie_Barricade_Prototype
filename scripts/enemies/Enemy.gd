@@ -1,6 +1,8 @@
 extends Node2D
 class_name Enemy
 
+@onready var goblin_sprite: Sprite2D = $GoblinSprite
+
 var run_manager: Node
 var enemy_id := "walker"
 var definition: Dictionary = {}
@@ -29,6 +31,9 @@ var burn_tick_time := 0.0
 var mutation_stat_modifiers: Dictionary = {}
 var phase_speed_multiplier := 1.0
 var phase_damage_multiplier := 1.0
+var special_trigger_used := false
+var charge_time := 0.0
+var visual_animation_time := 0.0
 
 func initialize(run: Node, enemy_type: String, spawn_position: Vector2, modifier: float, mutation_modifiers: Dictionary = {}) -> void:
 	run_manager = run
@@ -49,9 +54,14 @@ func initialize(run: Node, enemy_type: String, spawn_position: Vector2, modifier
 	burn_tick_time = 0.0
 	phase_speed_multiplier = 1.0
 	phase_damage_multiplier = 1.0
+	special_trigger_used = false
+	charge_time = 0.0
+	visual_animation_time = 0.0
+	_update_visual(0.0)
 	_recalculate_stats(false)
 
 func update_enemy(delta: float) -> void:
+	_update_visual(delta)
 	attack_cooldown = max(attack_cooldown - delta, 0.0)
 	spit_cooldown = max(spit_cooldown - delta, 0.0)
 	slow_time = max(slow_time - delta, 0.0)
@@ -61,6 +71,10 @@ func update_enemy(delta: float) -> void:
 	hit_flash = max(hit_flash - delta * 4.0, 0.0)
 	_handle_boss_phase()
 	queue_redraw()
+	if _handle_screamer(delta):
+		return
+	if _handle_brute_charge(delta):
+		return
 	if _handle_spitter(delta):
 		return
 	var target_y: float = run_manager.squad_manager.get_anchor_position().y
@@ -70,7 +84,7 @@ func update_enemy(delta: float) -> void:
 	if global_position.y < target_y:
 		var move_vector: Vector2 = Vector2(0, 1) * (run_manager.scroll_speed + _get_effective_move_speed()) * delta
 		position += move_vector
-	if barricade != null and is_instance_valid(barricade) and global_position.distance_to(barricade.global_position) <= attack_range + 24.0:
+	if barricade != null and is_instance_valid(barricade) and global_position.y >= barricade.global_position.y - attack_range - 24.0:
 		_attack_barricade_or_explode()
 	elif global_position.y >= run_manager.squad_manager.get_anchor_position().y - 90.0:
 		_attack_squad_or_explode()
@@ -89,6 +103,31 @@ func _handle_spitter(delta: float) -> bool:
 		return true
 	return false
 
+func _handle_screamer(delta: float) -> bool:
+	if special_behavior != "screamer":
+		return false
+	position += Vector2.DOWN * (run_manager.scroll_speed + _get_effective_move_speed() * delta)
+	if not special_trigger_used and global_position.y >= run_manager.road.get_squad_y() - 260.0:
+		special_trigger_used = true
+		run_manager.ui_manager.show_status_message("SCREAMER HOWL!", Color("ff8cf5"))
+		for offset in [-70.0, 0.0, 70.0]:
+			var spawn_x: float = run_manager.road.clamp_lane_x(global_position.x + offset, 220.0, 64.0)
+			run_manager.enemy_manager.spawn_enemy("walker", Vector2(spawn_x, global_position.y - 120.0), run_manager.get_difficulty_multiplier())
+	return false
+
+func _handle_brute_charge(delta: float) -> bool:
+	if special_behavior != "brute_charger":
+		return false
+	if not special_trigger_used and global_position.y >= run_manager.road.get_squad_y() - 320.0:
+		special_trigger_used = true
+		charge_time = 1.2
+		run_manager.ui_manager.show_status_message("BRUTE CHARGER!", Color("ff9f5c"))
+	if charge_time > 0.0:
+		charge_time -= delta
+		position += Vector2.DOWN * (run_manager.scroll_speed + _get_effective_move_speed() * 2.8) * delta
+		return false
+	return false
+
 func _attack_barricade_or_explode() -> void:
 	if attack_cooldown > 0.0:
 		return
@@ -98,6 +137,8 @@ func _attack_barricade_or_explode() -> void:
 		run_manager.ui_manager.spawn_explosion(global_position, 34.0)
 		AudioManager.play_sfx("explosion")
 		queue_free()
+	elif special_behavior == "brute_charger":
+		run_manager.barricade_manager.damage_active_barricade(damage * 1.4)
 	else:
 		run_manager.barricade_manager.damage_active_barricade(damage)
 
@@ -109,6 +150,12 @@ func _attack_squad_or_explode() -> void:
 		run_manager.squad_manager.receive_attack(damage * 1.6)
 		run_manager.ui_manager.spawn_explosion(global_position, 40.0)
 		AudioManager.play_sfx("explosion")
+		queue_free()
+	elif special_behavior == "treasure_horde":
+		run_manager.squad_manager.receive_attack(damage * 0.8)
+	elif special_behavior == "grabber":
+		run_manager.squad_manager.receive_attack(max(damage, run_manager.squad_manager.base_soldier_hp))
+		run_manager.ui_manager.show_status_message("GRABBER PULLED A SOLDIER!", Color("d5a7ff"))
 		queue_free()
 	else:
 		run_manager.squad_manager.receive_attack(damage)
@@ -124,9 +171,19 @@ func take_damage(amount: float, explosive_hit: bool) -> void:
 func die() -> void:
 	run_manager.register_kill(enemy_id)
 	var coins_awarded: int = run_manager.add_coins(reward_value)
+	if coins_awarded <= 0 and reward_value > 0:
+		run_manager.coins += reward_value
+		run_manager.run_stats["coins_earned"] = int(run_manager.run_stats["coins_earned"]) + reward_value
+		run_manager.coins_changed.emit(run_manager.coins)
+		coins_awarded = reward_value
 	run_manager.ui_manager.spawn_reward_popup(global_position, "+%d coins" % coins_awarded, Color("f5d142"))
 	if enemy_id == "boss":
+		run_manager.reward_manager.apply_reward_by_id("boss_relic")
+		run_manager.ui_manager.spawn_reward_popup(global_position + Vector2(0.0, -24.0), "+90M ROUTE", Color("7de3ff"))
 		run_manager.ui_manager.show_status_message("BOSS DEFEATED", Color("ffd166"))
+	if special_behavior == "treasure_horde":
+		run_manager.reward_manager.spawn_reward("coins_large", global_position + Vector2(-22.0, 0.0))
+		run_manager.reward_manager.spawn_reward("coins_large", global_position + Vector2(22.0, 0.0))
 	AudioManager.play_sfx("zombie_death")
 	run_manager.ui_manager.spawn_explosion(global_position, 24.0 if enemy_id != "boss" else 42.0)
 	queue_free()
@@ -141,13 +198,33 @@ func _draw() -> void:
 		color = color.lerp(Color.WHITE, hit_flash)
 	var body_width := 28.0
 	var body_height := 36.0
+	if enemy_id == "walker":
+		draw_rect(Rect2(-18, -68, 36, 6), Color("20242a"))
+		draw_rect(Rect2(-18, -68, 36 * (hp / max(max_hp, 1.0)), 6), Color("ff6262"))
+		draw_string(ThemeDB.fallback_font, Vector2(-24, 18), String(definition.get("name", enemy_id)).to_upper(), HORIZONTAL_ALIGNMENT_LEFT, 64, 12, Color.WHITE)
+		return
 	match special_behavior:
+		"dog":
+			body_width = 20.0
+			body_height = 18.0
+		"crawler":
+			body_width = 30.0
+			body_height = 18.0
 		"runner":
 			body_width = 24.0
 			body_height = 32.0
 		"tank":
 			body_width = 38.0
 			body_height = 44.0
+		"screamer":
+			body_width = 24.0
+			body_height = 36.0
+		"brute_charger":
+			body_width = 42.0
+			body_height = 46.0
+		"treasure_horde":
+			body_width = 40.0
+			body_height = 42.0
 		"exploder":
 			body_width = 26.0
 			body_height = 34.0
@@ -160,11 +237,26 @@ func _draw() -> void:
 		draw_circle(Vector2(0, -8), 8.0 + sin(Time.get_ticks_msec() / 110.0) * 2.0, Color("ffcf61", 0.9))
 	if special_behavior == "spitter":
 		draw_circle(Vector2(0, -6), 7.0, Color("88ff88"))
+	if special_behavior == "screamer":
+		draw_circle(Vector2(0, -12), 8.0, Color("ff8cf5"))
+	if special_behavior == "treasure_horde":
+		draw_circle(Vector2(0, -6), 8.0, Color("ffd166"))
 	if special_behavior == "boss":
 		draw_rect(Rect2(-24, 12, 48, 8), Color("5a1d1d"))
 	draw_rect(Rect2(-18, -body_height * 0.5 - 16, 36, 6), Color("20242a"))
 	draw_rect(Rect2(-18, -body_height * 0.5 - 16, 36 * (hp / max(max_hp, 1.0)), 6), Color("ff6262"))
 	draw_string(ThemeDB.fallback_font, Vector2(-24, body_height * 0.5 + 18), String(definition.get("name", enemy_id)).to_upper(), HORIZONTAL_ALIGNMENT_LEFT, 64, 12, Color.WHITE)
+
+func _update_visual(delta: float) -> void:
+	if goblin_sprite == null:
+		return
+	var use_goblin: bool = enemy_id == "walker"
+	goblin_sprite.visible = use_goblin
+	if not use_goblin:
+		return
+	visual_animation_time += delta
+	goblin_sprite.frame_coords = Vector2i(int(floor(visual_animation_time * 10.0)) % 6, 0)
+	goblin_sprite.modulate = Color.WHITE.lerp(Color("fff2d2"), hit_flash)
 
 func apply_slow(amount: float, duration: float) -> void:
 	slow_amount = max(slow_amount, amount)
@@ -187,7 +279,7 @@ func _handle_boss_phase() -> void:
 	_recalculate_stats(true)
 	run_manager.ui_manager.show_status_message("BOSS ENRAGED", Color("ff6b6b"))
 	for offset in [-90.0, 0.0, 90.0]:
-		var spawn_x: float = run_manager.road.clamp_lane_x(360.0 + offset, 220.0, 64.0)
+		var spawn_x: float = run_manager.road.clamp_lane_x(run_manager.road.get_center_x() + offset, 220.0, 64.0)
 		run_manager.enemy_manager.spawn_enemy("runner", Vector2(spawn_x, run_manager.road.get_spawn_y() - 40.0), run_manager.get_difficulty_multiplier())
 
 func _update_burn(delta: float) -> void:

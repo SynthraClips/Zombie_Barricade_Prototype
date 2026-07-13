@@ -16,7 +16,7 @@ func initialize(run: Node, id: String, world_position: Vector2) -> void:
 	run_manager = run
 	reward_id = id
 	reward_def = GameManager.reward_data.get("rewards", {}).get(reward_id, {})
-	magnet_radius = float(GameManager.game_config.get("pickup_magnet_radius", 140.0))
+	magnet_radius = float(GameManager.game_config.get("pickup_magnet_radius", 140.0)) + UpgradeManager.get_upgrade_value("pickup_magnet")
 	collect_radius = float(GameManager.game_config.get("pickup_collect_radius", 72.0))
 	magnet_speed = float(GameManager.game_config.get("pickup_magnet_speed", 420.0))
 	collected = false
@@ -29,6 +29,8 @@ func initialize(run: Node, id: String, world_position: Vector2) -> void:
 	monitorable = true
 	if not area_entered.is_connected(_on_area_entered):
 		area_entered.connect(_on_area_entered)
+	if run_manager != null and global_position.distance_to(run_manager.squad_manager.get_anchor_position()) <= collect_radius:
+		call_deferred("collect")
 
 func update_reward(delta: float) -> void:
 	if collected:
@@ -43,7 +45,9 @@ func update_reward(delta: float) -> void:
 		if magnet_trail_time <= 0.0:
 			run_manager.ui_manager.spawn_bullet_trail(global_position, global_position + direction * 14.0, Color(reward_def.get("color", "#ffffff"), 0.15))
 			magnet_trail_time = 0.08
-		global_position += direction * magnet_speed * delta
+		# move_toward prevents a long/slow frame from overshooting the squad and
+		# oscillating to the far side of the collector.
+		global_position = global_position.move_toward(anchor_position, magnet_speed * delta)
 		display_scale = lerpf(display_scale, 1.12, clampf(delta * 8.0, 0.0, 1.0))
 		distance_to_squad = global_position.distance_to(anchor_position)
 	else:
@@ -54,6 +58,19 @@ func update_reward(delta: float) -> void:
 		return
 	if global_position.y > 1380.0:
 		_unregister_and_free()
+
+func _process(delta: float) -> void:
+	if collected or run_manager == null or not is_instance_valid(run_manager):
+		return
+	if run_manager.running and not get_tree().paused:
+		update_reward(delta)
+
+func _physics_process(_delta: float) -> void:
+	if collected or run_manager == null:
+		return
+	var anchor_position: Vector2 = run_manager.squad_manager.get_anchor_position()
+	if overlaps_area(run_manager.squad_manager.get_collector_area()) or global_position.distance_to(anchor_position) <= collect_radius:
+		collect()
 
 func collect() -> void:
 	if collected:
@@ -66,7 +83,7 @@ func collect() -> void:
 	run_manager.ui_manager.spawn_reward_popup(global_position, String(reward_def.get("label", "Reward")).to_upper(), Color(reward_def.get("color", "#ffffff")))
 	run_manager.ui_manager.spawn_explosion(global_position, 16.0)
 	visible = false
-	queue_free()
+	call_deferred("_detach_and_free")
 
 func _on_area_entered(area: Area2D) -> void:
 	if area == run_manager.squad_manager.get_collector_area():
@@ -77,6 +94,12 @@ func _unregister_and_free() -> void:
 	set_deferred("monitoring", false)
 	set_deferred("monitorable", false)
 	run_manager.reward_manager.unregister_reward(self)
+	call_deferred("_detach_and_free")
+
+func _detach_and_free() -> void:
+	var parent := get_parent()
+	if parent != null:
+		parent.remove_child(self)
 	queue_free()
 
 func _draw() -> void:

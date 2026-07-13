@@ -7,7 +7,21 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_bus_volume = float(SaveManager.save_data.get("settings", {}).get("sfx_volume", 0.8))
 
+func set_sfx_volume(value: float) -> void:
+	_bus_volume = clampf(value, 0.0, 1.0)
+
+func clear_sfx() -> void:
+	for player in _player_pool:
+		if is_instance_valid(player):
+			player.stop()
+			player.free()
+	_player_pool.clear()
+
 func play_sfx(name: String) -> void:
+	# Headless validation has no audio device; allocating playback streams there
+	# only leaves server-side WAV resources alive during immediate test shutdown.
+	if DisplayServer.get_name() == "headless":
+		return
 	var frequency: float = {
 		"gunfire": 740.0,
 		"zombie_hit": 320.0,

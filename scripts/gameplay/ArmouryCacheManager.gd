@@ -37,8 +37,7 @@ func spawn_cache(world_position: Vector2 = Vector2.INF, config_overrides: Dictio
 	var spawn_position := world_position
 	if spawn_position == Vector2.INF:
 		var padding: float = float(config.get("spawn_lane_padding", 68.0))
-		var raw_x: float = randf_range(210.0, 510.0)
-		spawn_position = Vector2(run_manager.road.clamp_lane_x(raw_x, spawn_y, padding), spawn_y)
+		spawn_position = Vector2(run_manager.road.get_random_lane_x(spawn_y, padding), spawn_y)
 	var cache: Node2D = cache_scene.instantiate()
 	var reward_id: String = _roll_reward_id(String(config.get("reward_table", "default")))
 	add_child(cache)
@@ -95,7 +94,7 @@ func _attempt_spawn() -> void:
 	if not bool(config.get("enabled", true)):
 		return
 	var spawn_chance: float = float(config.get("spawn_chance", 0.35)) + run_manager.get_pressure_high_value_event_bonus() + run_manager.get_route_supply_spawn_chance_bonus()
-	if randf() > min(spawn_chance, 0.95):
+	if randf() > min(spawn_chance, 1.0):
 		return
 	spawn_cache()
 
@@ -114,8 +113,30 @@ func _roll_reward_id(table_name: String) -> String:
 	for entry in entries:
 		roll -= max(0.01, float(entry.get("weight", 1.0)))
 		if roll <= 0.0:
-			return String(entry.get("reward_id", "coins_large"))
-	return String(entries.back().get("reward_id", "coins_large"))
+			return _apply_rarity_reroll(String(entry.get("reward_id", "coins_large")), entries)
+	return _apply_rarity_reroll(String(entries.back().get("reward_id", "coins_large")), entries)
 
 func _get_config() -> Dictionary:
 	return GameManager.game_config.get("armoury_cache", {})
+
+func _apply_rarity_reroll(selected_id: String, entries: Array) -> String:
+	var rarity_bonus: float = run_manager.get_route_rarity_bonus() + UpgradeManager.get_upgrade_value("loot_rarity_bonus")
+	if rarity_bonus <= 0.0 or entries.is_empty() or randf() >= min(rarity_bonus, 0.45):
+		return selected_id
+	var reroll_id: String = String(entries[randi() % entries.size()].get("reward_id", selected_id))
+	var selected_rarity: String = String(GameManager.reward_data.get("rewards", {}).get(selected_id, {}).get("rarity", "common"))
+	var reroll_rarity: String = String(GameManager.reward_data.get("rewards", {}).get(reroll_id, {}).get("rarity", "common"))
+	return reroll_id if _rarity_rank(reroll_rarity) > _rarity_rank(selected_rarity) else selected_id
+
+func _rarity_rank(rarity: String) -> int:
+	match rarity:
+		"uncommon":
+			return 1
+		"rare":
+			return 2
+		"military":
+			return 3
+		"legendary":
+			return 4
+		_:
+			return 0

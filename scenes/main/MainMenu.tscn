@@ -90,6 +90,16 @@ layout_mode = 2
 theme_override_font_sizes/font_size = 20
 text = "Completed Missions: 0"
 
+[node name="Daily" type="Label" parent="Layout/RootRow/MainCard/CardMargin/CardVBox/Stats"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "Daily Best: 0m"
+
+[node name="Hero" type="Label" parent="Layout/RootRow/MainCard/CardMargin/CardVBox/Stats"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "Hero: None"
+
 [node name="Buttons" type="VBoxContainer" parent="Layout/RootRow/MainCard/CardMargin/CardVBox"]
 layout_mode = 2
 theme_override_constants/separation = 10
@@ -97,6 +107,14 @@ theme_override_constants/separation = 10
 [node name="Play" type="Button" parent="Layout/RootRow/MainCard/CardMargin/CardVBox/Buttons"]
 layout_mode = 2
 text = "Start Run"
+
+[node name="Daily" type="Button" parent="Layout/RootRow/MainCard/CardMargin/CardVBox/Buttons"]
+layout_mode = 2
+text = "Daily Challenge"
+
+[node name="Hero" type="Button" parent="Layout/RootRow/MainCard/CardMargin/CardVBox/Buttons"]
+layout_mode = 2
+text = "Cycle Hero"
 
 [node name="Upgrades" type="Button" parent="Layout/RootRow/MainCard/CardMargin/CardVBox/Buttons"]
 layout_mode = 2
@@ -109,6 +127,10 @@ text = "Missions"
 [node name="Settings" type="Button" parent="Layout/RootRow/MainCard/CardMargin/CardVBox/Buttons"]
 layout_mode = 2
 text = "Settings"
+
+[node name="Profiles" type="Button" parent="Layout/RootRow/MainCard/CardMargin/CardVBox/Buttons"]
+layout_mode = 2
+text = "Profiles"
 
 [node name="Validation" type="Button" parent="Layout/RootRow/MainCard/CardMargin/CardVBox/Buttons"]
 layout_mode = 2
@@ -151,8 +173,11 @@ theme_override_font_sizes/font_size = 18
 text = "Rescue soldiers, scoop up supply drops, and survive the next boss push. Barricade upgrades, missions, and route extensions all carry forward between runs."
 
 [connection signal="pressed" from="Layout/RootRow/MainCard/CardMargin/CardVBox/Buttons/Play" to="." method="_on_play_pressed"]
+[connection signal="pressed" from="Layout/RootRow/MainCard/CardMargin/CardVBox/Buttons/Daily" to="." method="_on_daily_pressed"]
+[connection signal="pressed" from="Layout/RootRow/MainCard/CardMargin/CardVBox/Buttons/Hero" to="." method="_on_hero_pressed"]
 [connection signal="pressed" from="Layout/RootRow/MainCard/CardMargin/CardVBox/Buttons/Upgrades" to="." method="_on_upgrades_pressed"]
 [connection signal="pressed" from="Layout/RootRow/MainCard/CardMargin/CardVBox/Buttons/Missions" to="." method="_on_missions_pressed"]
 [connection signal="pressed" from="Layout/RootRow/MainCard/CardMargin/CardVBox/Buttons/Settings" to="." method="_on_settings_pressed"]
+[connection signal="pressed" from="Layout/RootRow/MainCard/CardMargin/CardVBox/Buttons/Profiles" to="." method="_on_profiles_pressed"]
 [connection signal="pressed" from="Layout/RootRow/MainCard/CardMargin/CardVBox/Buttons/Validation" to="." method="_on_validation_pressed"]
 [connection signal="pressed" from="Layout/RootRow/MainCard/CardMargin/CardVBox/Buttons/Quit" to="." method="_on_quit_pressed"]

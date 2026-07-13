@@ -1,15 +1,16 @@
 {
-  "target_distance": 525,
+  "target_distance": 900,
   "base_scroll_speed": 90.0,
-  "max_squad_size": 24,
+  "max_squad_size": 48,
   "starting_soldiers": 3,
   "auto_fire_default": true,
+  "squad_lateral_speed": 520.0,
   "starting_weapon": "rifle",
   "starting_barricade_tier": "wooden_wall",
   "barricade_cooldown": 8.6,
   "base_enemy_spawn_interval": 1.72,
   "obstacle_spawn_interval": 3.1,
-  "boss_milestones": [200, 360],
+  "boss_milestones": [200, 360, 700],
   "post_boss_routes": {
     "extract_now": {
       "title": "Extract Now",
@@ -48,13 +49,155 @@
     }
   },
   "post_boss_route_order": ["extract_now", "push_forward", "rescue_route", "supply_route"],
+  "route_types": {
+    "balanced_route": {
+      "title": "Balanced Route",
+      "reward_multiplier": 1.0,
+      "difficulty_multiplier": 1.0
+    },
+    "supply_route": {
+      "title": "Supply Route",
+      "reward_multiplier": 1.08,
+      "supply_spawn_chance_bonus": 0.28,
+      "supply_spawn_distance_multiplier": 0.76,
+      "armoury_cache_reward_table": "supply_route"
+    },
+    "rescue_route": {
+      "title": "Rescue Route",
+      "reward_multiplier": 1.05,
+      "rescue_spawn_chance_bonus": 0.26,
+      "rescue_spawn_distance_multiplier": 0.78,
+      "gate_spawn_distance_multiplier": 0.84
+    },
+    "weapon_route": {
+      "title": "Weapon Route",
+      "reward_multiplier": 1.08,
+      "supply_spawn_chance_bonus": 0.18,
+      "supply_spawn_distance_multiplier": 0.82,
+      "rarity_bonus": 0.06,
+      "armoury_cache_reward_table": "supply_route"
+    },
+    "dangerous_route": {
+      "title": "Dangerous Route",
+      "reward_multiplier": 1.16,
+      "difficulty_multiplier": 1.2,
+      "runner_weight_multiplier": 1.22,
+      "rarity_bonus": 0.12
+    }
+  },
+  "route_type_order": ["balanced_route", "supply_route", "rescue_route", "weapon_route", "dangerous_route"],
+  "run_modifiers": {
+    "fog": {
+      "title": "Fog Bank",
+      "difficulty_multiplier": 1.08,
+      "reward_multiplier": 1.08
+    },
+    "ammo_shortage": {
+      "title": "Ammo Shortage",
+      "difficulty_multiplier": 1.12,
+      "reward_multiplier": 1.14
+    },
+    "runner_territory": {
+      "title": "Runner Territory",
+      "difficulty_multiplier": 1.15,
+      "reward_multiplier": 1.12,
+      "runner_weight_multiplier": 1.35
+    },
+    "supply_rich": {
+      "title": "Supply Rich",
+      "difficulty_multiplier": 1.06,
+      "reward_multiplier": 1.16
+    },
+    "damaged_barricade": {
+      "title": "Damaged Barricade",
+      "difficulty_multiplier": 1.1,
+      "reward_multiplier": 1.15,
+      "weaken_barricade_on_start": true,
+      "starting_barricade_damage": 45.0
+    }
+  },
+  "run_modifier_order": ["fog", "ammo_shortage", "runner_territory", "supply_rich", "damaged_barricade"],
+  "daily_challenge": {
+    "route_pool": ["balanced_route", "supply_route", "rescue_route", "weapon_route", "dangerous_route"],
+    "modifier_pool": ["fog", "ammo_shortage", "runner_territory", "supply_rich", "damaged_barricade"],
+    "objective_pool": ["daily_distance", "daily_hold", "daily_rescue"]
+  },
+  "heroes": {
+    "captain_rhodes": {
+      "name": "Captain Rhodes",
+      "description": "Calls in a squad overdrive that boosts fire rate, then triggers a full overdrive ultimate.",
+      "unlock_cost": 0,
+      "duration": 8.0,
+      "cooldown": 18.0,
+      "uses_per_run": 2,
+      "power": 0.35,
+      "ultimate_enabled": true,
+      "ultimate_power": 0.45,
+      "call_in_effect": "fire_rate_boost",
+      "ultimate_effect": "squad_overdrive"
+    },
+    "engineer_vale": {
+      "name": "Engineer Vale",
+      "description": "Repairs the barricade on call-in and can instantly restore it with an ultimate repair.",
+      "unlock_cost": 120,
+      "duration": 6.0,
+      "cooldown": 20.0,
+      "uses_per_run": 2,
+      "power": 35.0,
+      "ultimate_enabled": true,
+      "ultimate_power": 1.0,
+      "call_in_effect": "barricade_repair",
+      "ultimate_effect": "full_repair"
+    },
+    "mara_hale": {
+      "name": "Mara Hale",
+      "description": "Calls in a demolition burst, then spends her ultimate on a focused grenade volley.",
+      "unlock_cost": 180,
+      "duration": 7.0,
+      "cooldown": 22.0,
+      "uses_per_run": 2,
+      "power": 0.32,
+      "ultimate_enabled": true,
+      "ultimate_power": 42.0,
+      "call_in_effect": "damage_boost",
+      "ultimate_effect": "grenade_volley"
+    }
+  },
+  "hero_order": ["captain_rhodes", "engineer_vale", "mara_hale"],
+  "specialists": {
+    "doc_mercer": {
+      "name": "Doc Mercer",
+      "bonus_type": "heal",
+      "bonus_value": 1
+    },
+    "sgt_briggs": {
+      "name": "Sgt Briggs",
+      "bonus_type": "fire_rate",
+      "bonus_value": 0.2
+    },
+    "engineer_vale": {
+      "name": "Engineer Vale",
+      "bonus_type": "repair",
+      "bonus_value": 35.0
+    },
+    "ranger_knox": {
+      "name": "Ranger Knox",
+      "bonus_type": "damage",
+      "bonus_value": 0.22
+    },
+    "mara_hale": {
+      "name": "Mara Hale",
+      "bonus_type": "explosive",
+      "bonus_value": 8.0
+    }
+  },
   "allow_pickup_soldier_overcap": true,
-  "pickup_soldier_overcap_limit": 0,
+  "pickup_soldier_overcap_limit": 48,
   "temporary_boost_duration": 8.0,
   "temporary_shield_hp": 60,
   "pickup_magnet_radius": 140.0,
   "pickup_collect_radius": 72.0,
-  "pickup_magnet_speed": 420.0,
+  "pickup_magnet_speed": 650.0,
   "crit_multiplier": 1.5,
   "run_coin_keep_ratio": 1.0,
   "horde_pressure": {
@@ -250,6 +393,42 @@
       "weapon_override": "",
       "muzzle_color": "#ffdd88",
       "barricade_repair_per_second": 4.0
+    },
+    "heavy_gunner": {
+      "name": "Heavy Gunner",
+      "color": "#67727f",
+      "accent_color": "#d6dce3",
+      "weapon_override": "minigun",
+      "muzzle_color": "#ffd166",
+      "barricade_repair_per_second": 0.0
+    },
+    "shotgunner": {
+      "name": "Shotgunner",
+      "color": "#a85f46",
+      "accent_color": "#ffd3ab",
+      "weapon_override": "shotgun",
+      "damage_multiplier": 1.12,
+      "fire_rate_multiplier": 1.0,
+      "muzzle_color": "#ffb56b",
+      "barricade_repair_per_second": 0.0
+    },
+    "medic": {
+      "name": "Medic",
+      "color": "#55a37d",
+      "accent_color": "#e2fff0",
+      "weapon_override": "",
+      "muzzle_color": "#ffd966",
+      "barricade_repair_per_second": 0.0
+    },
+    "sniper": {
+      "name": "Sniper",
+      "color": "#705f95",
+      "accent_color": "#d9cbff",
+      "weapon_override": "sniper_rifle",
+      "damage_multiplier": 1.15,
+      "fire_rate_multiplier": 1.0,
+      "muzzle_color": "#c2a8ff",
+      "barricade_repair_per_second": 0.0
     }
   }
 }

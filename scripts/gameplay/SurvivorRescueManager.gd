@@ -37,8 +37,7 @@ func spawn_rescue(world_position: Vector2 = Vector2.INF, config_overrides: Dicti
 	var spawn_position := world_position
 	if spawn_position == Vector2.INF:
 		var padding: float = float(config.get("spawn_lane_padding", 78.0))
-		var raw_x: float = randf_range(210.0, 510.0)
-		spawn_position = Vector2(run_manager.road.clamp_lane_x(raw_x, spawn_y, padding), spawn_y)
+		spawn_position = Vector2(run_manager.road.get_random_lane_x(spawn_y, padding), spawn_y)
 	var rescue: Node2D = rescue_scene.instantiate()
 	add_child(rescue)
 	rescue.call("initialize", run_manager, self, spawn_position, config)
@@ -119,7 +118,7 @@ func _attempt_spawn() -> void:
 	if not bool(config.get("enabled", true)):
 		return
 	var spawn_chance: float = float(config.get("spawn_chance", 0.3)) + run_manager.get_pressure_high_value_event_bonus() * 0.6 + run_manager.get_route_rescue_spawn_chance_bonus()
-	if randf() > min(spawn_chance, 0.9):
+	if randf() > min(spawn_chance, 1.0):
 		return
 	spawn_rescue()
 

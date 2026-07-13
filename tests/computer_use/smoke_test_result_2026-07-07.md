@@ -1,6 +1,6 @@
 # Computer-Use Smoke Test Result
 
-- Command used: `"C:\Users\scott\Desktop\Godot_v4.7-stable_win64.exe" --path "C:\Users\scott\Documents\Small Game\project"`
+- Command updated for the consolidated project location: `"C:\Users\scott\Desktop\Godot_v4.7-stable_win64.exe" --path "G:\project\Small Game"`
 - Launch script: `project/tests/computer_use/run_computer_use_smoke_test.ps1`
 - Launch log: `project/tests/computer_use/logs/launch_2026-07-07_11-39-57.log`
 - Stdout log: `project/tests/computer_use/logs/godot_stdout_2026-07-07_11-39-57.log`

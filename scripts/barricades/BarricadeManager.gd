@@ -18,6 +18,8 @@ func setup(run: Node) -> void:
 	deploy_cooldown = 0.0
 	active_barricade = null
 	deploy_current_barricade(false)
+	if active_barricade != null and is_instance_valid(active_barricade) and deploy_cooldown <= 0.0:
+		deploy_cooldown = _get_deploy_cooldown_for(selected_barricade_id)
 
 func update_barricade(delta: float) -> void:
 	deploy_cooldown = max(deploy_cooldown - delta, 0.0)
@@ -35,8 +37,8 @@ func deploy_current_barricade(apply_pressure_relief: bool = true) -> bool:
 	selected_barricade_id = GameManager.get_starting_barricade_id()
 	active_barricade = barricade_scene.instantiate()
 	add_child(active_barricade)
-	active_barricade.initialize(run_manager, selected_barricade_id, Vector2(360, 900))
-	deploy_cooldown = _get_deploy_cooldown_for(selected_barricade_id)
+	active_barricade.initialize(run_manager, selected_barricade_id, Vector2(run_manager.road.get_center_x(), 900))
+	deploy_cooldown = max(0.1, _get_deploy_cooldown_for(selected_barricade_id))
 	SaveManager.save_data["stats"]["barricades_deployed"] += 1
 	MissionManager.increment_progress("barricades_deployed", 1)
 	if apply_pressure_relief:
@@ -69,4 +71,4 @@ func _get_deploy_cooldown_for(barricade_id: String) -> float:
 	var definition: Dictionary = GameManager.barricade_data.get(barricade_id, {})
 	var cooldown_multiplier: float = float(definition.get("cooldown_multiplier", 1.0))
 	var upgrade_multiplier: float = max(0.5, 1.0 - UpgradeManager.get_upgrade_value("barricade_cooldown"))
-	return base_cooldown * cooldown_multiplier * upgrade_multiplier
+	return max(0.1, base_cooldown * cooldown_multiplier * upgrade_multiplier)

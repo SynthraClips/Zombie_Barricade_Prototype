@@ -14,6 +14,11 @@ class_name UIManager
 @onready var barricade_label: Label = $HUD/Margin/VBox/Barricade
 @onready var weapon_label: Label = $HUD/Margin/VBox/Weapon
 @onready var special_ammo_label: Label = $HUD/Margin/VBox/SpecialAmmo
+@onready var hero_label: Label = $HUD/Margin/VBox/Hero
+@onready var deploy_barricade_button: Button = $HUD/ActionPanel/Margin/Buttons/DeployBarricade
+@onready var call_hero_button: Button = $HUD/ActionPanel/Margin/Buttons/CallHero
+@onready var hero_ultimate_button: Button = $HUD/ActionPanel/Margin/Buttons/HeroUltimate
+@onready var start_hint: Label = $HUD/StartHint
 @onready var popup_layer: Control = $PopupLayer
 @onready var hit_flash: ColorRect = $HitFlash
 @onready var pause_panel: Panel = $PausePanel
@@ -24,6 +29,7 @@ class_name UIManager
 @onready var pause_menu: Button = $PausePanel/VBox/Menu
 @onready var end_replay: Button = $EndPanel/VBox/Replay
 @onready var end_upgrade: Button = $EndPanel/VBox/Upgrade
+@onready var end_missions: Button = $EndPanel/VBox/Missions
 @onready var end_menu: Button = $EndPanel/VBox/Menu
 @onready var post_boss_panel: Panel = $PostBossPanel
 @onready var post_boss_title: Label = $PostBossPanel/Margin/VBox/Title
@@ -31,6 +37,7 @@ class_name UIManager
 @onready var post_boss_buttons: VBoxContainer = $PostBossPanel/Margin/VBox/Buttons
 
 var run_manager: Node
+var start_hint_time_remaining := 7.0
 
 func setup(run: Node) -> void:
 	run_manager = run
@@ -57,26 +64,73 @@ func setup(run: Node) -> void:
 	end_panel.visible = false
 	post_boss_panel.visible = false
 	hit_flash.modulate.a = 0.0
+	start_hint.visible = true
+	start_hint_time_remaining = 7.0
 	if not pause_resume.pressed.is_connected(_on_pause_resume):
 		pause_resume.pressed.connect(_on_pause_resume)
 		pause_menu.pressed.connect(_on_menu_pressed)
 		end_replay.pressed.connect(_on_replay_pressed)
 		end_upgrade.pressed.connect(_on_upgrade_pressed)
+		end_missions.pressed.connect(_on_missions_pressed)
 		end_menu.pressed.connect(_on_menu_pressed)
+	if not deploy_barricade_button.pressed.is_connected(_on_deploy_barricade_pressed):
+		deploy_barricade_button.pressed.connect(_on_deploy_barricade_pressed)
+		call_hero_button.pressed.connect(_on_call_hero_pressed)
+		hero_ultimate_button.pressed.connect(_on_hero_ultimate_pressed)
 
 func _process(delta: float) -> void:
 	if hit_flash.modulate.a > 0.0:
 		hit_flash.modulate.a = max(hit_flash.modulate.a - delta * 2.5, 0.0)
 	if run_manager != null:
+		if start_hint_time_remaining > 0.0 and not get_tree().paused:
+			start_hint_time_remaining = max(start_hint_time_remaining - delta, 0.0)
+			start_hint.visible = start_hint_time_remaining > 0.0
 		var barricade: Node = run_manager.barricade_manager.active_barricade
 		var barricade_name: String = String(run_manager.barricade_manager.get_selected_barricade_definition().get("name", "Barricade"))
 		var cooldown: float = run_manager.barricade_manager.deploy_cooldown
-		barricade_label.text = "Barricade: %s" % barricade_name
+		barricade_label.text = "Deploy Barricade [B]: %s" % barricade_name
 		if barricade == null or not is_instance_valid(barricade):
 			barricade_label.text += " | %s" % ("READY" if cooldown <= 0.0 else "%.1fs" % cooldown)
 		else:
 			barricade_label.text += " | %d/%d HP" % [int(barricade.hp), int(barricade.max_hp)]
+		var barricade_ready := (barricade == null or not is_instance_valid(barricade)) and cooldown <= 0.0
+		deploy_barricade_button.disabled = not barricade_ready
+		if barricade_ready:
+			deploy_barricade_button.text = "Deploy Barricade [B]"
+		elif cooldown > 0.0:
+			deploy_barricade_button.text = "Barricade Cooldown %.1fs" % cooldown
+		else:
+			deploy_barricade_button.text = "Barricade Deployed"
 		weapon_label.text = "Weapon: %s%s" % [run_manager.weapon_manager.get_current_weapon_id().replace("_", " ").capitalize(), " | Auto" if bool(SaveManager.save_data.get("settings", {}).get("auto_fire", false)) else ""]
+		var hero_state: Dictionary = run_manager.get_hero_state()
+		if String(hero_state.get("id", "")) == "":
+			hero_label.visible = true
+			hero_label.text = "Call Hero [H]: No Hero Selected"
+			call_hero_button.text = "No Hero Selected"
+			call_hero_button.disabled = true
+			hero_ultimate_button.text = "Ultimate [U] - No Hero"
+			hero_ultimate_button.disabled = true
+		else:
+			hero_label.visible = true
+			var hero_active: bool = bool(hero_state.get("active", false))
+			var hero_cooldown: float = float(hero_state.get("cooldown_remaining", 0.0))
+			var hero_uses: int = int(hero_state.get("uses_remaining", 0))
+			var ultimate_ready: bool = hero_active and bool(hero_state.get("ultimate_ready", false))
+			var hero_suffix: String = " | ACTIVE %.1fs" % float(hero_state.get("time_remaining", 0.0)) if hero_active else " | CD %.1fs" % hero_cooldown if hero_cooldown > 0.0 else " | READY" if hero_uses > 0 else " | NO CALL-INS"
+			var ultimate_suffix: String = " | ULT READY [U]" if ultimate_ready else " | ULT USED" if hero_active else " | ULT NOT READY"
+			var spec_state: Dictionary = run_manager.get_specialist_state()
+			hero_label.text = "Call Hero [H]: %s%s%s | Specs %d" % [String(hero_state.get("name", "Hero")), hero_suffix, ultimate_suffix, int(spec_state.get("count", 0))]
+			call_hero_button.disabled = hero_active or hero_cooldown > 0.0 or hero_uses <= 0
+			if not call_hero_button.disabled:
+				call_hero_button.text = "Call Hero [H]"
+			elif hero_active:
+				call_hero_button.text = "Hero Active %.1fs" % float(hero_state.get("time_remaining", 0.0))
+			elif hero_cooldown > 0.0:
+				call_hero_button.text = "Hero Cooldown %.1fs" % hero_cooldown
+			else:
+				call_hero_button.text = "No Call-ins Remaining"
+			hero_ultimate_button.disabled = not ultimate_ready
+			hero_ultimate_button.text = "Ultimate [U]" if ultimate_ready else "Ultimate [U] - Not Ready"
 		var ammo_state: Dictionary = run_manager.weapon_manager.get_special_ammo_state()
 		if String(ammo_state.get("type", "")) == "":
 			special_ammo_label.visible = false
@@ -105,13 +159,13 @@ func _update_route_label() -> void:
 		return
 	var route_state: Dictionary = run_manager.get_route_status_state()
 	if not bool(route_state.get("active", false)):
-		route_label.visible = false
-		route_label.text = ""
+		route_label.visible = true
+		route_label.text = "Route: %s | %s" % [String(route_state.get("route_type_title", "Balanced Route")), String(route_state.get("run_modifier_title", "No Modifier"))]
 		return
 	route_label.visible = true
 	var reward_multiplier: float = float(route_state.get("reward_multiplier", 1.0))
 	var suffix: String = " | x%.2f coins" % reward_multiplier if reward_multiplier > 1.0 else ""
-	route_label.text = "Route: %s%s" % [String(route_state.get("title", "Extended Route")), suffix]
+	route_label.text = "Route: %s | %s%s" % [String(route_state.get("route_type_title", "Balanced Route")), String(route_state.get("title", "Extended Route")), suffix]
 
 func _on_squad_changed(value: int) -> void:
 	squad_label.text = "Squad: %d" % value
@@ -174,6 +228,9 @@ func _update_pressure_visuals() -> void:
 		pressure_bar.modulate = Color.WHITE
 
 func _update_objective() -> void:
+	if run_manager != null and run_manager.mini_objective_label != "":
+		objective_label.text = "Objective: %s" % run_manager.mini_objective_label
+		return
 	var missions := MissionManager.get_mission_rows()
 	for mission in missions:
 		if not mission["completed"]:
@@ -302,10 +359,36 @@ func show_end_screen(victory: bool, summary: Dictionary) -> void:
 	post_boss_panel.visible = false
 	end_panel.visible = true
 	end_title.text = "Run Complete" if victory else "Game Over"
-	var route_line := ""
-	if String(summary.get("route_choice", "")) != "":
-		route_line = "\nRoute %s | x%.2f coins" % [String(summary.get("route_choice", "")), float(summary.get("route_reward_multiplier", 1.0))]
-	end_summary.text = "Distance %dm\nKills %d\nCoins %d\nSquad %d%s" % [summary["distance"], summary["kills"], summary["coins_earned"], summary["final_soldiers"], route_line]
+	var route_type_text: String = String(summary.get("route_type_title", "Balanced Route"))
+	var modifier_text: String = String(summary.get("run_modifier_title", "No Modifier"))
+	var best_line := ""
+	if bool(summary.get("new_best_distance", false)) or bool(summary.get("new_best_coins", false)):
+		var tags: Array[String] = []
+		if bool(summary.get("new_best_distance", false)):
+			tags.append("New Best Distance")
+		if bool(summary.get("new_best_coins", false)):
+			tags.append("New Best Coins")
+		best_line = "\n%s" % ", ".join(tags)
+	end_summary.text = "Distance %dm | Score %d\nCoins %d | Kills %d | Rescued %d\nPickups %d | Gates %d | Bosses %d\nRoute %s | Modifier %s\nSquad %d%s" % [
+		int(summary.get("distance", 0)),
+		int(summary.get("score", 0)),
+		int(summary.get("coins_earned", 0)),
+		int(summary.get("kills", 0)),
+		int(summary.get("soldiers_rescued", 0)),
+		int(summary.get("pickups_collected", 0)),
+		int(summary.get("gates_chosen", 0)),
+		int(summary.get("bosses_defeated", summary.get("boss_kills", 0))),
+		route_type_text,
+		modifier_text,
+		int(summary.get("final_soldiers", 0)),
+		best_line
+	]
+	var specialist_count: int = 0
+	var specialists_value = summary.get("specialists_rescued", [])
+	if specialists_value is Array:
+		specialist_count = specialists_value.size()
+	if int(summary.get("mini_objectives_completed", 0)) > 0 or specialist_count > 0:
+		end_summary.text += "\nMini Objectives %d | Specialists %d" % [int(summary.get("mini_objectives_completed", 0)), specialist_count]
 
 func _on_run_ended(victory: bool) -> void:
 	pass
@@ -320,6 +403,18 @@ func _pulse_label(label: Label, color: Color) -> void:
 func _on_pause_resume() -> void:
 	toggle_pause()
 
+func _on_deploy_barricade_pressed() -> void:
+	if run_manager != null:
+		run_manager.request_deploy_barricade()
+
+func _on_call_hero_pressed() -> void:
+	if run_manager != null:
+		run_manager.request_call_hero()
+
+func _on_hero_ultimate_pressed() -> void:
+	if run_manager != null:
+		run_manager.request_hero_ultimate()
+
 func _on_replay_pressed() -> void:
 	get_tree().paused = false
 	GameManager.start_run()
@@ -327,6 +422,10 @@ func _on_replay_pressed() -> void:
 func _on_upgrade_pressed() -> void:
 	get_tree().paused = false
 	get_tree().change_scene_to_file("res://scenes/ui/UpgradeScreen.tscn")
+
+func _on_missions_pressed() -> void:
+	get_tree().paused = false
+	get_tree().change_scene_to_file("res://scenes/ui/MissionScreen.tscn")
 
 func _on_menu_pressed() -> void:
 	get_tree().paused = false

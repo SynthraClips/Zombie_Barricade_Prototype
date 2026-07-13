@@ -99,6 +99,12 @@ func _handle_timer_expired() -> void:
 		run_manager.ui_manager.show_status_message("Alarm Triggered!", Color("ff6b6b"))
 		run_manager.ui_manager.spawn_reward_popup(global_position + Vector2(-50.0, -38.0), "Alarm Triggered!", Color("ff6b6b"))
 		run_manager.wave_spawner.trigger_alarm_wave(config, global_position)
+		var spawn_count: int = int(config.get("alarm_spawn_count", 3))
+		var spawn_pool: Array = config.get("alarm_spawn_pool", ["runner", "walker", "exploder"])
+		for index in range(spawn_count):
+			var enemy_id: String = String(spawn_pool[index % max(1, spawn_pool.size())])
+			var spawn_x: float = run_manager.road.clamp_lane_x(global_position.x + randf_range(-90.0, 90.0), 220.0, 64.0)
+			run_manager.enemy_manager.spawn_enemy(enemy_id, Vector2(spawn_x, global_position.y - 120.0), run_manager.get_difficulty_multiplier())
 	else:
 		run_manager.ui_manager.show_status_message("Object Destroyed", Color("ffd98f"))
 	queue_free()
@@ -149,7 +155,28 @@ func _resolve_reward_id() -> String:
 		reward_table = GameManager.reward_data.get("obstacle_reward_table", [])
 	if reward_table.is_empty():
 		return ""
-	return String(reward_table[randi() % reward_table.size()])
+	var selected_id: String = String(reward_table[randi() % reward_table.size()])
+	var rarity_bonus: float = run_manager.get_route_rarity_bonus() + UpgradeManager.get_upgrade_value("loot_rarity_bonus")
+	if rarity_bonus > 0.0 and randf() < min(rarity_bonus, 0.35):
+		var reroll_id: String = String(reward_table[randi() % reward_table.size()])
+		var selected_rarity: String = String(GameManager.reward_data.get("rewards", {}).get(selected_id, {}).get("rarity", "common"))
+		var reroll_rarity: String = String(GameManager.reward_data.get("rewards", {}).get(reroll_id, {}).get("rarity", "common"))
+		if _rarity_rank(reroll_rarity) > _rarity_rank(selected_rarity):
+			selected_id = reroll_id
+	return selected_id
+
+func _rarity_rank(rarity: String) -> int:
+	match rarity:
+		"uncommon":
+			return 1
+		"rare":
+			return 2
+		"military":
+			return 3
+		"legendary":
+			return 4
+		_:
+			return 0
 
 func _get_obstacle_definition(type_id: String) -> Dictionary:
 	var definitions: Dictionary = GameManager.game_config.get("road_objects", {}).get("definitions", {})

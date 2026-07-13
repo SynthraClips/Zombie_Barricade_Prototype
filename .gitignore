@@ -14,8 +14,10 @@ exports/
 tests/computer_use/logs/
 reports/temp/
 reports/*.tmp
+reports/safehouse_tree_screenshots/*.import
 *.log
 *.tmp
+
 
 # OS/editor clutter
 .DS_Store

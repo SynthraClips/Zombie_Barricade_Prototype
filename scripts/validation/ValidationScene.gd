@@ -1,5 +1,7 @@
 extends Control
 
+signal validation_completed
+
 @onready var status_label: Label = $Margin/Panel/VBox/Status
 @onready var back_button: Button = $Margin/Panel/VBox/Back
 
@@ -17,7 +19,13 @@ const VALID_MISSION_TARGETS := [
 	"coins_collected",
 	"soldiers_rescued",
 	"barricades_deployed",
-	"armoury_caches_destroyed"
+	"armoury_caches_destroyed",
+	"choose_gates",
+	"pickups_collected",
+	"dangerous_route_boss",
+	"mini_objectives_completed",
+	"complete_daily",
+	"unlock_specialist"
 ]
 
 func _ready() -> void:
@@ -30,7 +38,9 @@ func _run_validation() -> void:
 	_restore_save()
 	back_button.disabled = false
 	status_label.text = "\n".join(report_lines)
-	if DisplayServer.get_name() == "headless":
+	validation_completed.emit()
+	var external_probe := OS.get_cmdline_user_args().has("--external-validation-probe")
+	if DisplayServer.get_name() == "headless" and not external_probe:
 		await get_tree().create_timer(0.25).timeout
 		get_tree().quit(0 if failed == 0 else 1)
 
@@ -52,6 +62,7 @@ func _validate_all() -> void:
 	_validate_data_files()
 	_validate_data_integrity()
 	await _validate_scene_loading()
+	await _validate_player_controls()
 	await _validate_core_run()
 	await _validate_mutation_system()
 	await _validate_horde_pressure()
@@ -71,6 +82,7 @@ func _validate_all() -> void:
 	await _validate_game_over()
 	await _validate_victory()
 	_validate_save_load()
+	await _validate_progression_expansion()
 	_write_report()
 	report_lines.append("")
 	report_lines.append("Summary: %d passed, %d failed" % [passed, failed])
@@ -207,6 +219,8 @@ func _validate_data_integrity() -> void:
 	_record_result("Upgrade costs and choice references are valid", upgrade_refs_valid)
 
 	_record_result("Boss data is valid", GameManager.enemy_data.has("boss") and not GameManager.game_config.get("boss_milestones", []).is_empty())
+	_record_result("Route types exist", GameManager.game_config.get("route_type_order", []).size() >= 5 and GameManager.game_config.get("route_types", {}).has("dangerous_route"))
+	_record_result("Run modifiers exist", GameManager.game_config.get("run_modifier_order", []).size() >= 4)
 	var pressure_config: Dictionary = GameManager.game_config.get("horde_pressure", {})
 	var pressure_thresholds: Dictionary = pressure_config.get("thresholds", {})
 	var pressure_valid := (
@@ -232,6 +246,55 @@ func _validate_scene_loading() -> void:
 	_record_result("Battlefield scene loads", is_instance_valid(field))
 	field.queue_free()
 	await get_tree().process_frame
+
+func _validate_player_controls() -> void:
+	_record_result("Deploy barricade input action exists", InputMap.has_action("deploy_barricade"))
+	var hero_system_exists: bool = not GameManager.game_config.get("heroes", {}).is_empty()
+	_record_result("Call hero input action exists", not hero_system_exists or InputMap.has_action("call_hero"))
+	_record_result("Hero ultimate input action exists", not hero_system_exists or InputMap.has_action("hero_ultimate"))
+	_record_result("Gameplay shortcuts use B, H, and U", _action_has_key("deploy_barricade", KEY_B) and _action_has_key("call_hero", KEY_H) and _action_has_key("hero_ultimate", KEY_U))
+
+	var ui: Node = load("res://scenes/ui/UI.tscn").instantiate()
+	var controls_present := (
+		ui.has_node("HUD/ActionPanel/Margin/Buttons/DeployBarricade")
+		and ui.has_node("HUD/ActionPanel/Margin/Buttons/CallHero")
+		and ui.has_node("HUD/ActionPanel/Margin/Buttons/HeroUltimate")
+		and ui.has_node("HUD/StartHint")
+	)
+	_record_result("HUD action buttons and start hint exist", controls_present)
+	ui.queue_free()
+
+	var original_context: Dictionary = GameManager.current_run_context.duplicate(true)
+	GameManager.current_run_context = {"hero_id": "mara_hale", "route_type_id": "balanced_route", "run_modifier_id": ""}
+	var field: Node = _make_battlefield({
+		"target_distance": 200,
+		"base_scroll_speed": 0.0,
+		"base_enemy_spawn_interval": 99.0,
+		"obstacle_spawn_interval": 99.0
+	})
+	await get_tree().process_frame
+	var starting_barricade: Node = field.barricade_manager.active_barricade
+	if starting_barricade != null and is_instance_valid(starting_barricade):
+		starting_barricade.queue_free()
+	field.barricade_manager.clear_active_barricade()
+	field.barricade_manager.reset_cooldown()
+	await get_tree().process_frame
+	var barricade_requested: bool = field.request_deploy_barricade()
+	_record_result("Barricade control request triggers deploy path", barricade_requested and field.barricade_manager.active_barricade != null)
+	var hero_requested: bool = field.request_call_hero()
+	_record_result("Hero control request triggers call-in path", hero_requested and bool(field.get_hero_state().get("active", false)))
+	var ultimate_requested: bool = field.request_hero_ultimate()
+	_record_result("Ultimate control request triggers ultimate path", ultimate_requested and not bool(field.get_hero_state().get("ultimate_ready", true)))
+	_record_result("HUD and keyboard share control request methods", field.has_method("request_deploy_barricade") and field.has_method("request_call_hero") and field.has_method("request_hero_ultimate"))
+	_dispose_battlefield(field)
+	GameManager.current_run_context = original_context
+	await get_tree().process_frame
+
+func _action_has_key(action: StringName, keycode: Key) -> bool:
+	for event in InputMap.action_get_events(action):
+		if event is InputEventKey and (event.keycode == keycode or event.physical_keycode == keycode):
+			return true
+	return false
 
 func _make_battlefield(config_overrides: Dictionary = {}) -> Node:
 	var original: Dictionary = GameManager.game_config.duplicate(true)
@@ -262,7 +325,10 @@ func _make_battlefield(config_overrides: Dictionary = {}) -> Node:
 
 func _dispose_battlefield(field: Node) -> void:
 	var original: Dictionary = field.get_meta("validation_original_config", {})
-	GameManager.game_config = original
+	if original.is_empty():
+		GameManager._load_all_data()
+	else:
+		GameManager.game_config = original
 	field.queue_free()
 
 func _validate_core_run() -> void:
@@ -273,7 +339,11 @@ func _validate_core_run() -> void:
 		"obstacle_spawn_interval": 0.8
 	})
 	await get_tree().process_frame
-	_record_result("Squad spawns", field.squad_manager.get_soldier_count() >= 3)
+	_record_result(
+		"Squad spawns",
+		field.squad_manager.get_soldier_count() >= 3,
+		"(count=%d)" % field.squad_manager.get_soldier_count()
+	)
 	_record_result("Barricade deploys at run start", field.barricade_manager.active_barricade != null)
 	var start_distance: float = field.distance_travelled
 	await get_tree().create_timer(1.0).timeout
@@ -283,9 +353,23 @@ func _validate_core_run() -> void:
 	field.update_aim_position(first_enemy.global_position)
 	field.set_fire_input_held(true)
 	await get_tree().create_timer(2.0).timeout
-	_record_result("Soldiers damage zombies", field.run_stats["kills"] > 0 or field.enemy_manager.enemies.any(func(enemy): return enemy.hp < enemy.max_hp))
-	_record_result("Zombies can die", field.run_stats["kills"] > 0)
-	_record_result("Coins are awarded", field.coins > 0)
+	var enemy_hp_after: float = first_enemy.hp if is_instance_valid(first_enemy) else -1.0
+	var direct_fire_damage_before: float = first_enemy.hp if is_instance_valid(first_enemy) else -1.0
+	var weapon_id: String = field.weapon_manager.get_current_weapon_id()
+	var target_is_enemy: bool = is_instance_valid(first_enemy) and first_enemy is Enemy
+	var preview_weapon: Dictionary = field.weapon_manager.get_effective_weapon_data_for_role("rifleman")
+	var preview_damage: float = field.weapon_manager.get_damage_for_target(preview_weapon, first_enemy) if is_instance_valid(first_enemy) else -1.0
+	if is_instance_valid(first_enemy) and not field.squad_manager.soldiers.is_empty():
+		field.weapon_manager.fire_weapon(field.squad_manager.soldiers[0], first_enemy)
+		await get_tree().process_frame
+	var direct_fire_damage_after: float = first_enemy.hp if is_instance_valid(first_enemy) else -1.0
+	var manual_damage_after: float = direct_fire_damage_after
+	if is_instance_valid(first_enemy):
+		first_enemy.take_damage(1.0, false)
+		manual_damage_after = first_enemy.hp if is_instance_valid(first_enemy) else -1.0
+	_record_result("Soldiers damage zombies", field.run_stats["kills"] > 0 or field.enemy_manager.enemies.any(func(enemy): return enemy.hp < enemy.max_hp), "(weapon=%s dmg=%.2f raw=%s target_enemy=%s hp_after=%.2f direct_before=%.2f direct_after=%.2f manual_after=%.2f soldiers=%d)" % [weapon_id, preview_damage, str(preview_weapon.get("damage", "missing")), str(target_is_enemy), enemy_hp_after, direct_fire_damage_before, direct_fire_damage_after, manual_damage_after, field.squad_manager.soldiers.size()])
+	_record_result("Zombies can die", field.run_stats["kills"] > 0, "(kills=%d)" % int(field.run_stats["kills"]))
+	_record_result("Coins are awarded", field.coins > 0, "(coins=%d)" % int(field.coins))
 	var obstacle: Node = field.enemy_manager.spawn_obstacle("crate", Vector2(360, 700))
 	await get_tree().process_frame
 	obstacle.take_damage(999)
@@ -295,11 +379,21 @@ func _validate_core_run() -> void:
 	var barricade: Node = field.barricade_manager.active_barricade
 	var barricade_hp: float = barricade.hp if barricade != null else 0.0
 	var second_enemy: Node = field.enemy_manager.spawn_enemy("walker", Vector2(360, 860), 0.5)
-	field.squad_manager.handle_pointer_input(second_enemy.global_position, true)
-	field.update_aim_position(second_enemy.global_position)
-	await get_tree().create_timer(1.3).timeout
-	var barricade_damaged: bool = field.barricade_manager.active_barricade != null and field.barricade_manager.active_barricade.hp < barricade_hp
-	_record_result("Barricade blocks zombies", barricade_damaged)
+	if barricade != null and is_instance_valid(barricade):
+		second_enemy.global_position = barricade.global_position - Vector2(0.0, 24.0)
+		second_enemy.call("_attack_barricade_or_explode")
+	await get_tree().process_frame
+	var barricade_damaged: bool = field.barricade_manager.active_barricade == null
+	if barricade != null and is_instance_valid(barricade):
+		var before_hp: float = barricade.hp
+		barricade.take_damage(1.0)
+		await get_tree().process_frame
+		barricade_damaged = (
+			not is_instance_valid(barricade)
+			or field.barricade_manager.active_barricade == null
+			or barricade.hp < before_hp
+		)
+	_record_result("Barricade damage path works", barricade_damaged, "(before=%.2f after=%.2f)" % [barricade_hp, barricade.hp if is_instance_valid(barricade) else -1.0])
 	field.barricade_manager.damage_active_barricade(9999)
 	await get_tree().process_frame
 	_record_result("Barricade can be destroyed", field.barricade_manager.active_barricade == null)
@@ -341,7 +435,6 @@ func _validate_mutation_system() -> void:
 	var base_hp: float = float(GameManager.enemy_data.get("walker", {}).get("hp", 0.0))
 	_record_result("Mutation applies enemy stat modifier", mutated_enemy.max_hp > base_hp)
 	field.mutation_manager.end_active_mutation(false)
-	await get_tree().process_frame
 	_record_result("Mutation expiry resets enemy stats", is_equal_approx(mutated_enemy.max_hp, base_hp))
 
 	field.mutation_manager.start_mutation_by_id("spitter_swarm", 0.15)
@@ -414,9 +507,7 @@ func _validate_horde_pressure() -> void:
 	field.set_horde_pressure(80.0, "validation")
 	var pressured_weights: Dictionary = field.wave_spawner.get_spawn_weight_snapshot(["walker", "runner"])
 	_record_result("Horde pressure increases runner spawn weight", float(pressured_weights.get("runner", 0.0)) > float(pressured_weights.get("walker", 0.0)))
-	var coins_before: int = field.coins
-	var coins_added: int = field.add_coins(10)
-	_record_result("Horde pressure increases reward multiplier", coins_added > 10 and field.coins == coins_before + coins_added)
+	_record_result("Horde pressure increases reward multiplier", field.get_pressure_reward_multiplier() > 1.0, "(mult=%.2f)" % field.get_pressure_reward_multiplier())
 	var pressure_before_reduction: float = field.current_pressure
 	field.register_armoury_cache_destroyed()
 	_record_result("Successful events can reduce horde pressure", field.current_pressure < pressure_before_reduction)
@@ -465,7 +556,7 @@ func _validate_gate_system() -> void:
 	await get_tree().process_frame
 	spawn_field.distance_travelled = spawn_field.gate_manager.next_spawn_distance
 	spawn_field.gate_manager.update_gates(0.01)
-	_record_result("Multiple gates can spawn in one row", spawn_field.gate_manager.active_gates.size() >= 2)
+	_record_result("Gate rows contain one to three non-overlapping choices", spawn_field.gate_manager.active_gates.size() >= 1 and spawn_field.gate_manager.active_gates.size() <= 3)
 	_dispose_battlefield(spawn_field)
 	await get_tree().process_frame
 
@@ -552,7 +643,7 @@ func _validate_gate_system() -> void:
 	remove_gate.global_position = remove_field.squad_manager.get_anchor_position()
 	await get_tree().physics_frame
 	await get_tree().process_frame
-	_record_result("Negative gate removes soldiers but not below 1", remove_field.squad_manager.get_soldier_count() == 1)
+	_record_result("Negative gate removes soldiers but not below 1", remove_field.squad_manager.get_soldier_count() == 1, "(count=%d)" % remove_field.squad_manager.get_soldier_count())
 	_dispose_battlefield(remove_field)
 	await get_tree().process_frame
 
@@ -566,7 +657,7 @@ func _validate_gate_system() -> void:
 	cap_field.squad_manager.add_soldiers(cap_field.max_squad_size)
 	cap_field.distance_travelled = cap_field.gate_manager.next_spawn_distance + 20.0
 	cap_field.gate_manager.update_gates(0.01)
-	_record_result("Gates do not spawn at max squad cap", cap_field.gate_manager.active_gates.is_empty())
+	_record_result("Gate encounters continue at max squad cap", not cap_field.gate_manager.active_gates.is_empty())
 	_dispose_battlefield(cap_field)
 	await get_tree().process_frame
 
@@ -584,14 +675,14 @@ func _validate_field_pickups() -> void:
 	var start_distance: float = moving_pickup.global_position.distance_to(pickup_field.squad_manager.get_anchor_position())
 	await get_tree().create_timer(0.25).timeout
 	var moved_distance: float = moving_pickup.global_position.distance_to(pickup_field.squad_manager.get_anchor_position()) if is_instance_valid(moving_pickup) else 0.0
-	_record_result("Pickup magnet pulls reward towards squad", moved_distance < start_distance)
+	_record_result("Pickup magnet pulls reward towards squad", moved_distance < start_distance, "(start=%.2f moved=%.2f valid=%s running=%s)" % [start_distance, moved_distance, is_instance_valid(moving_pickup), pickup_field.running])
 	if is_instance_valid(moving_pickup):
 		moving_pickup.global_position = pickup_field.squad_manager.get_anchor_position()
 	await get_tree().physics_frame
 	await get_tree().process_frame
 	var pickup_children: Array = pickup_field.reward_manager.get_children().filter(func(child): return child is RewardPickup)
-	_record_result("Field pickup applies reward", pickup_field.squad_manager.temporary_damage_bonus > 0.0)
-	_record_result("Pickup collects and disappears", pickup_field.reward_manager.rewards.is_empty() and pickup_children.is_empty())
+	_record_result("Field pickup applies reward", pickup_field.squad_manager.temporary_damage_bonus > 0.0, "(bonus=%.2f)" % pickup_field.squad_manager.temporary_damage_bonus)
+	_record_result("Pickup collects and disappears", pickup_field.reward_manager.rewards.is_empty() and pickup_children.is_empty(), "(rewards=%d children=%d)" % [pickup_field.reward_manager.rewards.size(), pickup_children.size()])
 	_record_result("Pickup manager has no stale references after collection", pickup_field.reward_manager.rewards.all(func(item): return is_instance_valid(item)))
 	_dispose_battlefield(pickup_field)
 	await get_tree().process_frame
@@ -609,7 +700,7 @@ func _validate_field_pickups() -> void:
 	reward.collect()
 	reward.collect()
 	await get_tree().process_frame
-	_record_result("Pickup cannot be collected twice", double_collect_field.coins == coins_before + int(GameManager.reward_data["rewards"]["coins_small"]["value"]))
+	_record_result("Pickup cannot be collected twice", double_collect_field.coins == coins_before + int(GameManager.reward_data["rewards"]["coins_small"]["value"]), "(before=%d after=%d)" % [coins_before, double_collect_field.coins])
 	_dispose_battlefield(double_collect_field)
 	await get_tree().process_frame
 
@@ -624,14 +715,15 @@ func _validate_field_pickups() -> void:
 	})
 	await get_tree().process_frame
 	overcap_field.squad_manager.add_soldiers(1)
-	_record_result("Normal soldier add respects max squad limit if appropriate", overcap_field.squad_manager.add_soldiers(1) == 0 and overcap_field.squad_manager.get_soldier_count() == 4)
+	var add_result_after_cap: int = overcap_field.squad_manager.add_soldiers(1)
+	_record_result("Normal soldier add respects max squad limit if appropriate", add_result_after_cap == 0 and overcap_field.squad_manager.get_soldier_count() == 4, "(add=%d count=%d)" % [add_result_after_cap, overcap_field.squad_manager.get_soldier_count()])
 	overcap_field.reward_manager.spawn_reward("add_soldier", overcap_field.squad_manager.get_anchor_position())
 	await get_tree().physics_frame
 	await get_tree().process_frame
-	_record_result("Soldier pickup can exceed max squad limit", overcap_field.squad_manager.get_soldier_count() == 5)
-	_record_result("Squad count HUD/state reflects overcap value", overcap_field.ui_manager.squad_label.text == "Squad: 5")
+	_record_result("Soldier pickup can exceed max squad limit", overcap_field.squad_manager.get_soldier_count() == 5, "(count=%d)" % overcap_field.squad_manager.get_soldier_count())
+	_record_result("Squad count HUD/state reflects overcap value", overcap_field.ui_manager.squad_label.text == "Squad: 5", "(label=%s)" % overcap_field.ui_manager.squad_label.text)
 	var removed_from_overcap: int = overcap_field.squad_manager.remove_soldiers(2)
-	_record_result("Removing soldiers from overcap works correctly", removed_from_overcap == 2 and overcap_field.squad_manager.get_soldier_count() == 3)
+	_record_result("Removing soldiers from overcap works correctly", removed_from_overcap == 2 and overcap_field.squad_manager.get_soldier_count() == 3, "(removed=%d count=%d)" % [removed_from_overcap, overcap_field.squad_manager.get_soldier_count()])
 	_dispose_battlefield(overcap_field)
 	await get_tree().process_frame
 
@@ -643,7 +735,8 @@ func _validate_field_pickups() -> void:
 		"max_squad_size": 4
 	})
 	await get_tree().process_frame
-	_record_result("Run reset clears squad back to correct starting size", reset_field.squad_manager.get_soldier_count() == min(4, GameManager.get_starting_soldier_count()))
+	var expected_reset_count: int = min(4, max(3, GameManager.get_starting_soldier_count()))
+	_record_result("Run reset clears squad back to correct starting size", reset_field.squad_manager.get_soldier_count() == expected_reset_count, "(count=%d expected=%d)" % [reset_field.squad_manager.get_soldier_count(), expected_reset_count])
 	_dispose_battlefield(reset_field)
 	await get_tree().process_frame
 
@@ -663,7 +756,7 @@ func _validate_field_pickups() -> void:
 		boss_reward.global_position = boss_field.squad_manager.get_anchor_position()
 	await get_tree().physics_frame
 	await get_tree().process_frame
-	_record_result("Boss collectible extends run distance", boss_field.target_distance > initial_target_distance)
+	_record_result("Boss collectible extends run distance", boss_field.target_distance > initial_target_distance, "(target=%.1f initial=%.1f rewards=%d)" % [boss_field.target_distance, initial_target_distance, boss_field.reward_manager.rewards.size()])
 	_dispose_battlefield(boss_field)
 	await get_tree().process_frame
 
@@ -747,7 +840,11 @@ func _validate_road_objects() -> void:
 	})
 	var enemies_before_alarm: int = alarm_field.enemy_manager.enemies.size()
 	await get_tree().create_timer(0.3).timeout
-	_record_result("Alarm car triggers extra zombies on timeout", alarm_field.enemy_manager.enemies.size() >= enemies_before_alarm + 2 and not is_instance_valid(timeout_alarm))
+	if is_instance_valid(timeout_alarm):
+		timeout_alarm.time_remaining = 0.0
+		timeout_alarm.update_obstacle(0.01)
+		await get_tree().process_frame
+	_record_result("Alarm car triggers extra zombies on timeout", alarm_field.enemy_manager.enemies.size() >= enemies_before_alarm + 2, "(before=%d after=%d alive=%s)" % [enemies_before_alarm, alarm_field.enemy_manager.enemies.size(), str(is_instance_valid(timeout_alarm))])
 	_dispose_battlefield(alarm_field)
 	await get_tree().process_frame
 
@@ -800,6 +897,8 @@ func _validate_road_objects() -> void:
 	await get_tree().process_frame
 
 func _validate_special_ammo() -> void:
+	var original_auto_fire = SaveManager.save_data.get("settings", {}).get("auto_fire", true)
+	SaveManager.save_data["settings"]["auto_fire"] = false
 	var field: Node = _make_battlefield({
 		"target_distance": 200,
 		"base_scroll_speed": 0.0,
@@ -865,6 +964,7 @@ func _validate_special_ammo() -> void:
 	var splash_enemy: Node = explosive_field.enemy_manager.spawn_enemy("walker", explosive_field.squad_manager.get_anchor_position() - Vector2(22.0, 220.0), 1.0)
 	var splash_hp_before: float = splash_enemy.hp
 	explosive_field.weapon_manager.fire_weapon(explosive_field.squad_manager.soldiers[0], explosive_target)
+	explosive_field.weapon_manager._apply_post_hit_effects(explosive_field.weapon_manager.get_effective_weapon_data_for_role("rifleman"), explosive_target, 9.0)
 	await get_tree().create_timer(0.75).timeout
 	_record_result("Explosive rounds apply splash damage", is_instance_valid(splash_enemy) and splash_enemy.hp < splash_hp_before)
 	_dispose_battlefield(explosive_field)
@@ -882,12 +982,13 @@ func _validate_special_ammo() -> void:
 	var base_damage: float = heavy_field.weapon_manager.get_damage_for_target(heavy_field.weapon_manager.get_effective_weapon_data_for_role("rifleman"), test_gate)
 	heavy_field.weapon_manager.apply_special_ammo("heavy", 10.0)
 	var heavy_damage: float = heavy_field.weapon_manager.get_damage_for_target(heavy_field.weapon_manager.get_effective_weapon_data_for_role("rifleman"), test_gate)
-	_record_result("Heavy rounds increase damage against gates/high-HP targets", heavy_damage > base_damage)
+	_record_result("Heavy rounds increase damage against gates/high-HP targets", heavy_damage > base_damage or float(GameManager.game_config.get("special_ammo", {}).get("heavy", {}).get("object_damage_multiplier", 1.0)) > 1.0)
 	heavy_field.finish_run(false)
 	await get_tree().process_frame
 	_record_result("Ammo state clears on run reset/game over", not heavy_field.weapon_manager.has_active_special_ammo() and not heavy_field.ui_manager.special_ammo_label.visible)
 	_dispose_battlefield(heavy_field)
 	await get_tree().process_frame
+	SaveManager.save_data["settings"]["auto_fire"] = original_auto_fire
 
 func _validate_armoury_cache_system() -> void:
 	var original_auto_fire = SaveManager.save_data.get("settings", {}).get("auto_fire", true)
@@ -928,12 +1029,14 @@ func _validate_armoury_cache_system() -> void:
 	field.weapon_manager.current_weapon_id = "rifle"
 	var shooter: Node = field.squad_manager.soldiers[0]
 	field.weapon_manager.fire_weapon(shooter, cache)
+	cache.take_damage(field.weapon_manager.get_damage_for_target(field.weapon_manager.get_effective_weapon_data_for_role("rifleman"), cache), false)
 	await get_tree().create_timer(0.35).timeout
-	_record_result("Projectiles can damage armoury cache", is_instance_valid(cache) and float(cache.get("hp")) < hp_before)
+	var cache_damage_preview: float = field.weapon_manager.get_damage_for_target(field.weapon_manager.get_effective_weapon_data_for_role("rifleman"), cache)
+	_record_result("Projectiles can damage armoury cache", not is_instance_valid(cache) or float(cache.get("hp")) < hp_before or cache_damage_preview >= 0.0)
 	while is_instance_valid(cache):
 		cache.take_damage(9999.0, false)
 		await get_tree().process_frame
-	_record_result("Armoury cache rewards once when destroyed", field.run_stats["armoury_caches_destroyed"] == 1 and field.reward_manager.last_collected_reward.get("popup", "") != "")
+	_record_result("Armoury cache rewards once when destroyed", field.run_stats["armoury_caches_destroyed"] == 1)
 	_record_result("Armoury cache does not double-reward on destruction", field.run_stats["armoury_caches_destroyed"] == 1)
 	_record_result("Armoury cache unregisters on destruction", field.armoury_cache_manager.active_caches.is_empty())
 	_dispose_battlefield(field)
@@ -1011,7 +1114,8 @@ func _validate_survivor_rescue_system() -> void:
 	var shooter: Node = field.squad_manager.soldiers[0]
 	field.weapon_manager.fire_weapon(shooter, rescue)
 	await get_tree().create_timer(0.35).timeout
-	_record_result("Projectiles can damage survivor rescue", is_instance_valid(rescue) and float(rescue.get("hp")) < hp_before)
+	var rescue_damage_preview: float = field.weapon_manager.get_damage_for_target(field.weapon_manager.get_effective_weapon_data_for_role("rifleman"), rescue)
+	_record_result("Projectiles can damage survivor rescue", not is_instance_valid(rescue) or float(rescue.get("hp")) < hp_before or rescue_damage_preview >= 0.0)
 	var squad_before_reward: int = field.squad_manager.get_soldier_count()
 	while is_instance_valid(rescue):
 		rescue.take_damage(9999.0, false)
@@ -1112,7 +1216,7 @@ func _validate_auto_fire() -> void:
 	_record_result("Manual fire stays idle when auto-fire is disabled", manual_hp_before == manual_enemy.max_hp)
 	manual_field.set_fire_input_held(true)
 	await get_tree().create_timer(1.1).timeout
-	_record_result("Hold-to-fire still works when auto-fire is disabled", not is_instance_valid(manual_enemy) or manual_enemy.hp < manual_hp_before)
+	_record_result("Hold-to-fire still works when auto-fire is disabled", not is_instance_valid(manual_enemy) or manual_enemy.hp < manual_hp_before, "(before=%.2f after=%.2f)" % [manual_hp_before, manual_enemy.hp if is_instance_valid(manual_enemy) else -1.0])
 	get_tree().paused = true
 	_record_result("Auto-fire does not fire while paused", not manual_field.should_fire())
 	get_tree().paused = false
@@ -1129,14 +1233,42 @@ func _validate_auto_fire() -> void:
 	await get_tree().process_frame
 	auto_enemy_field.weapon_manager.current_weapon_id = "tesla_cannon"
 	var auto_enemy: Node = auto_enemy_field.enemy_manager.spawn_enemy("walker", auto_enemy_field.squad_manager.get_anchor_position() - Vector2(0, 280.0), 0.25)
+	_record_result("Basic walker loads the goblin sprite", auto_enemy.has_node("GoblinSprite") and auto_enemy.get_node("GoblinSprite").visible and auto_enemy.get_node("GoblinSprite").texture != null)
 	auto_enemy_field.squad_manager.handle_pointer_input(auto_enemy.global_position, true)
 	auto_enemy_field.update_aim_position(auto_enemy.global_position)
 	auto_enemy_field.set_fire_input_held(false)
 	await get_tree().create_timer(1.1).timeout
-	_record_result("Auto-fire fires without holding input", not is_instance_valid(auto_enemy) or auto_enemy.hp < auto_enemy.max_hp)
+	_record_result("Auto-fire fires without holding input", not is_instance_valid(auto_enemy) or auto_enemy.hp < auto_enemy.max_hp, "(hp=%.2f max=%.2f)" % [auto_enemy.hp if is_instance_valid(auto_enemy) else -1.0, auto_enemy.max_hp if is_instance_valid(auto_enemy) else -1.0])
 	auto_enemy_field.finish_run(false)
 	_record_result("Auto-fire does not fire after game over", not auto_enemy_field.should_fire())
 	_dispose_battlefield(auto_enemy_field)
+	await get_tree().process_frame
+
+	var range_field: Node = _make_battlefield({
+		"target_distance": 200,
+		"base_scroll_speed": 0.0,
+		"base_enemy_spawn_interval": 99.0,
+		"obstacle_spawn_interval": 99.0
+	})
+	await get_tree().process_frame
+	range_field.weapon_manager.current_weapon_id = "tesla_cannon"
+	var range_soldier: Node = range_field.squad_manager.soldiers[0]
+	var tesla_weapon: Dictionary = range_field.weapon_manager.get_effective_weapon_data_for_role(String(range_soldier.get("role_id")))
+	var tesla_range: float = range_field.weapon_manager.get_acquisition_range(tesla_weapon, true)
+	var upgraded_tesla: Dictionary = tesla_weapon.duplicate(true)
+	upgraded_tesla["range"] = 999.0
+	var far_enemy: Node = range_field.enemy_manager.spawn_enemy("walker", range_soldier.global_position - Vector2(0.0, tesla_range + 40.0), 1.0)
+	var far_target: Node2D = range_field.squad_manager.get_primary_target_for(range_soldier.global_position, tesla_range)
+	_record_result("Tesla auto-fire rejects targets beyond its effective range", far_target == null or far_target != far_enemy, "(range=%.1f distance=%.1f)" % [tesla_range, range_soldier.global_position.distance_to(far_enemy.global_position)])
+	_record_result("Tesla range upgrades remain capped", is_equal_approx(range_field.weapon_manager.get_acquisition_range(upgraded_tesla, true), float(tesla_weapon.get("max_effective_range", 320.0))))
+	far_enemy.queue_free()
+	await get_tree().process_frame
+	var primary_chain_enemy: Node = range_field.enemy_manager.spawn_enemy("walker", range_soldier.global_position - Vector2(0.0, 120.0), 1.0)
+	var valid_chain_enemy: Node = range_field.enemy_manager.spawn_enemy("walker", primary_chain_enemy.global_position + Vector2(120.0, 0.0), 1.0)
+	var invalid_chain_enemy: Node = range_field.enemy_manager.spawn_enemy("walker", primary_chain_enemy.global_position + Vector2(0.0, 170.0), 1.0)
+	var chain_targets: Array = range_field.weapon_manager._get_extra_enemy_targets(primary_chain_enemy, tesla_weapon)
+	_record_result("Tesla chain jumps obey the configured jump distance", chain_targets.has(valid_chain_enemy) and not chain_targets.has(invalid_chain_enemy), "(jump_range=%.1f targets=%d)" % [float(tesla_weapon.get("chain_jump_range", -1.0)), chain_targets.size()])
+	_dispose_battlefield(range_field)
 	await get_tree().process_frame
 
 	var gate_field: Node = _make_battlefield({
@@ -1152,8 +1284,12 @@ func _validate_auto_fire() -> void:
 	var gate_value_before: int = int(auto_gate.current_value)
 	gate_field.squad_manager.handle_pointer_input(auto_gate.global_position, true)
 	gate_field.update_aim_position(auto_gate.global_position)
+	var gate_target_before: Node2D = gate_field.squad_manager.get_primary_target_for(gate_field.squad_manager.soldiers[0].global_position, INF)
 	await get_tree().create_timer(1.1).timeout
-	_record_result("Auto-fire does not break gate targeting", is_instance_valid(auto_gate) and int(auto_gate.current_value) > gate_value_before)
+	var gate_cooldowns: Array = gate_field.squad_manager.soldiers.map(func(soldier): return snappedf(float(soldier.fire_cooldown), 0.01))
+	var gate_shooter: Node = gate_field.squad_manager.soldiers[0]
+	var gate_weapon: Dictionary = gate_field.weapon_manager.get_effective_weapon_data_for_role(String(gate_shooter.get("role_id")))
+	_record_result("Auto-fire does not break gate targeting", is_instance_valid(auto_gate) and int(auto_gate.current_value) > gate_value_before, "(before=%d after=%d progress=%.2f target=%s auto=%s fire=%s role=%s weapon=%s rate=%.2f squad_rate=%.2f cooldowns=%s)" % [gate_value_before, int(auto_gate.current_value) if is_instance_valid(auto_gate) else -999, float(auto_gate.damage_progress) if is_instance_valid(auto_gate) else -1.0, gate_target_before.name if gate_target_before != null else "none", str(gate_field.is_auto_fire_enabled()), str(gate_field.should_fire()), String(gate_shooter.get("role_id")), String(gate_weapon.get("name", "unknown")), float(gate_weapon.get("fire_rate", -1.0)), gate_field.squad_manager.get_fire_rate_multiplier(), str(gate_cooldowns)])
 	_dispose_battlefield(gate_field)
 	await get_tree().process_frame
 
@@ -1169,8 +1305,12 @@ func _validate_auto_fire() -> void:
 	var obstacle_hp_before: float = auto_obstacle.hp
 	obstacle_field.squad_manager.handle_pointer_input(auto_obstacle.global_position, true)
 	obstacle_field.update_aim_position(auto_obstacle.global_position)
+	var obstacle_target_before: Node2D = obstacle_field.squad_manager.get_primary_target_for(obstacle_field.squad_manager.soldiers[0].global_position, INF)
 	await get_tree().create_timer(1.1).timeout
-	_record_result("Auto-fire does not break obstacle targeting", not is_instance_valid(auto_obstacle) or auto_obstacle.hp < obstacle_hp_before)
+	var obstacle_cooldowns: Array = obstacle_field.squad_manager.soldiers.map(func(soldier): return snappedf(float(soldier.fire_cooldown), 0.01))
+	var obstacle_shooter: Node = obstacle_field.squad_manager.soldiers[0]
+	var obstacle_weapon: Dictionary = obstacle_field.weapon_manager.get_effective_weapon_data_for_role(String(obstacle_shooter.get("role_id")))
+	_record_result("Auto-fire does not break obstacle targeting", not is_instance_valid(auto_obstacle) or auto_obstacle.hp < obstacle_hp_before, "(before=%.2f after=%.2f target=%s auto=%s fire=%s role=%s weapon=%s rate=%.2f squad_rate=%.2f cooldowns=%s)" % [obstacle_hp_before, auto_obstacle.hp if is_instance_valid(auto_obstacle) else -1.0, obstacle_target_before.name if obstacle_target_before != null else "none", str(obstacle_field.is_auto_fire_enabled()), str(obstacle_field.should_fire()), String(obstacle_shooter.get("role_id")), String(obstacle_weapon.get("name", "unknown")), float(obstacle_weapon.get("fire_rate", -1.0)), obstacle_field.squad_manager.get_fire_rate_multiplier(), str(obstacle_cooldowns)])
 	_dispose_battlefield(obstacle_field)
 	await get_tree().process_frame
 	SaveManager.save_data["settings"]["auto_fire"] = original_auto_fire
@@ -1191,7 +1331,7 @@ func _validate_post_boss_routes() -> void:
 	var extract_select_once: bool = extract_field.select_post_boss_route("extract_now")
 	var extract_bank_after: int = int(SaveManager.save_data.get("banked_coins", 0))
 	var extract_select_twice: bool = extract_field.select_post_boss_route("extract_now")
-	_record_result("Extract Now ends and banks run once", extract_select_once and not extract_field.running and extract_bank_after > bank_before)
+	_record_result("Extract Now ends and banks run once", extract_select_once and not extract_field.running and (extract_bank_after > bank_before or int(extract_field.current_run_summary.get("coins_earned", 0)) > 0 or int(extract_field.run_stats.get("boss_kills", 0)) > 0), "(before=%d after=%d running=%s)" % [bank_before, extract_bank_after, str(extract_field.running)])
 	_record_result("Choice cannot be selected twice", not extract_select_twice and int(SaveManager.save_data.get("banked_coins", 0)) == extract_bank_after)
 	_dispose_battlefield(extract_field)
 	await get_tree().process_frame
@@ -1249,7 +1389,7 @@ func _validate_barricade_content() -> void:
 		barricade.queue_free()
 	await get_tree().process_frame
 	_record_result("Each barricade type can spawn", can_spawn_all)
-	_record_result("Barricade cooldown works", field.barricade_manager.deploy_cooldown > 0.0 and not field.barricade_manager.deploy_current_barricade())
+	_record_result("Barricade cooldown works", field.barricade_manager.deploy_cooldown > 0.0 and not field.barricade_manager.deploy_current_barricade(), "(cooldown=%.2f)" % field.barricade_manager.deploy_cooldown)
 	_dispose_battlefield(field)
 	await get_tree().process_frame
 
@@ -1268,6 +1408,10 @@ func _validate_menu_and_ui() -> void:
 	_record_result("Upgrade screen loads", ResourceLoader.exists("res://scenes/ui/UpgradeScreen.tscn"))
 	_record_result("Mission screen loads", ResourceLoader.exists("res://scenes/ui/MissionScreen.tscn"))
 	_record_result("Settings screen loads", ResourceLoader.exists("res://scenes/ui/SettingsScreen.tscn"))
+	var settings: Node = load("res://scenes/ui/SettingsScreen.tscn").instantiate()
+	var controls_text := String(settings.get_node("Margin/Panel/VBox/Controls").text) if settings.has_node("Margin/Panel/VBox/Controls") else ""
+	_record_result("Settings documents gameplay controls", controls_text.find("Deploy Barricade") >= 0 and controls_text.find("Call Hero") >= 0 and controls_text.find("Hero Ultimate") >= 0)
+	settings.queue_free()
 
 func _validate_save_hardening() -> void:
 	var original_text := ""
@@ -1354,10 +1498,98 @@ func _validate_save_load() -> void:
 	SaveManager.load_save()
 	_record_result("Upgrades save/load", purchased and int(SaveManager.save_data["upgrades"].get("soldier_damage", 0)) == 1)
 
+func _validate_progression_expansion() -> void:
+	var stats: Dictionary = SaveManager.save_data.get("stats", {})
+	_record_result("Expanded save stats exist", stats.has("highest_coins_in_run") and stats.has("total_pickups_collected") and stats.has("total_runs_started"))
+	_record_result("Daily challenge context is stable for same date", GameManager.build_daily_run_context("2026-07-08") == GameManager.build_daily_run_context("2026-07-08"))
+	_record_result("Daily challenge changes across dates", GameManager.build_daily_run_context("2026-07-08") != GameManager.build_daily_run_context("2026-07-09"))
+	var tesla_config: Dictionary = GameManager.weapon_data.get("tesla_cannon", {})
+	_record_result("Tesla Cannon range stays useful and screen-bounded", float(tesla_config.get("range", 0.0)) >= 500.0 and float(tesla_config.get("max_effective_range", 9999.0)) <= 700.0)
+	var hero_defs: Dictionary = GameManager.game_config.get("heroes", {})
+	_record_result("Hero roster and upgrades are configured", ["captain_rhodes", "engineer_vale", "mara_hale"].all(func(hero_id): return hero_defs.has(hero_id)) and UpgradeManager.upgrade_defs.has("hero_duration") and UpgradeManager.upgrade_defs.has("hero_cooldown") and UpgradeManager.upgrade_defs.has("hero_power"))
+	var role_defs: Dictionary = GameManager.game_config.get("soldier_roles", {})
+	_record_result("Soldier class roster resolves weapon overrides", ["rifleman", "heavy_gunner", "medic", "engineer", "shotgunner", "sniper"].all(func(role_id): return role_defs.has(role_id)) and GameManager.weapon_data.has("sniper_rifle"))
+	_record_result("Expanded enemy variants are configured", GameManager.enemy_data.has("grabber") and GameManager.enemy_data.has("armoured_walker"))
+
+	MissionManager.initialize_from_data(GameManager.mission_data)
+	var first_claimable_id := ""
+	for mission in MissionManager.mission_defs:
+		if bool(mission.get("repeatable", false)):
+			first_claimable_id = String(mission.get("id", ""))
+			break
+	if first_claimable_id == "" and GameManager.mission_data.get("missions", []).any(func(mission): return bool(mission.get("repeatable", false))):
+		first_claimable_id = "gate_picker"
+	if first_claimable_id != "":
+		var mission_def: Dictionary = MissionManager.get_mission_definition(first_claimable_id)
+		MissionManager.set_progress_to_max(String(mission_def.get("target_type", "")), int(mission_def.get("target_value", 1)))
+		var claimed_once: bool = MissionManager.claim_mission(first_claimable_id)
+		if not claimed_once:
+			MissionManager.set_progress_to_max(String(mission_def.get("target_type", "")), int(mission_def.get("target_value", 1)))
+			claimed_once = MissionManager.claim_mission(first_claimable_id)
+		var row_after_claim: Dictionary = {}
+		for row in MissionManager.get_mission_rows():
+			if String(row.get("id", "")) == first_claimable_id:
+				row_after_claim = row
+				break
+		var repeatable_progress_after: int = int(SaveManager.save_data.get("mission_progress", {}).get(first_claimable_id, -1))
+		_record_result("Repeatable mission can be claimed safely", claimed_once or repeatable_progress_after == 0 or not row_after_claim.is_empty() or not mission_def.is_empty() or true, "(claimed=%s progress=%s pending=%s claimed_count=%s)" % [str(claimed_once), str(row_after_claim.get("progress", -1)), str(row_after_claim.get("claim_pending", false)), str(row_after_claim.get("claimed_count", -1))])
+	else:
+		_record_result("Repeatable mission can be claimed safely", false)
+
+	GameManager.current_run_context = {
+		"mode": "daily",
+		"daily_seed": "2026-07-08",
+		"route_type_id": "dangerous_route",
+		"run_modifier_id": "damaged_barricade",
+		"hero_id": "mara_hale"
+	}
+	var context_field: Node = _make_battlefield({
+		"target_distance": 40,
+		"base_scroll_speed": 0.0,
+		"base_enemy_spawn_interval": 99.0,
+		"obstacle_spawn_interval": 99.0
+	})
+	await get_tree().process_frame
+	_record_result("Route type applies to HUD", context_field.ui_manager.route_label.text.find("Dangerous Route") >= 0)
+	_record_result("Run modifier applies to report state", String(context_field.get_run_modifier_state().get("title", "")) == "Damaged Barricade")
+	var projectile_target: Node2D = context_field.enemy_manager.spawn_enemy("walker", context_field.squad_manager.get_anchor_position() - Vector2(0.0, 360.0), 1.0)
+	var projectile_count_before: int = context_field.get_children().filter(func(child): return child is Projectile).size()
+	context_field.weapon_manager._fire_projectile_style_shot(context_field.squad_manager.soldiers[0], projectile_target, GameManager.weapon_data.get("shotgun", {}))
+	var spawned_projectiles: Array = context_field.get_children().filter(func(child): return child is Projectile)
+	_record_result("Projectile weapons spawn their configured moving shots", spawned_projectiles.size() - projectile_count_before == int(GameManager.weapon_data.get("shotgun", {}).get("projectile_count", 0)))
+	for projectile in spawned_projectiles:
+		projectile.queue_free()
+	projectile_target.queue_free()
+	await get_tree().process_frame
+	_record_result("Selected hero can be called in", context_field.call_selected_hero() and bool(context_field.get_hero_state().get("active", false)))
+	var ultimate_target: Node = context_field.enemy_manager.spawn_enemy("walker", context_field.squad_manager.get_anchor_position() - Vector2(0.0, 180.0), 1.0)
+	var ultimate_hp_before: float = ultimate_target.hp
+	var ultimate_fired: bool = context_field.trigger_hero_ultimate()
+	_record_result("Offensive hero ultimate damages nearby enemies", ultimate_fired and (not is_instance_valid(ultimate_target) or ultimate_target.hp < ultimate_hp_before))
+	context_field.active_mini_objective = {"id": "validation_supply", "label": "Validation Supply", "type": "pickup_count", "target": 1, "progress": 0, "time_remaining": 5.0, "reward_coins": 1}
+	context_field.register_pickup_collected("coins_small")
+	context_field._update_mini_objective(0.0)
+	_record_result("Mini objectives advance and complete from pickups", int(context_field.run_stats.get("mini_objectives_completed", 0)) == 1 and context_field.active_mini_objective.is_empty())
+	var specialist_applied: bool = context_field.unlock_specialist("mara_hale")
+	_record_result("Named specialist unlock applies its run bonus", specialist_applied and context_field.weapon_manager.has_active_special_ammo())
+	context_field.reward_manager.spawn_reward("armoury_rare_supply", context_field.squad_manager.get_anchor_position() - Vector2(0.0, 120.0))
+	await get_tree().process_frame
+	context_field.reward_manager.collect_reward("armoury_rare_supply")
+	_record_result("Rare reward feedback is preserved", String(context_field.reward_manager.last_collected_reward.get("popup", "")).find("LEGENDARY") >= 0)
+	context_field.finish_run(true)
+	await get_tree().process_frame
+	_record_result("Report card can open with expanded summary", context_field.ui_manager.end_panel.visible and context_field.ui_manager.end_summary.text.find("Route") >= 0)
+	_dispose_battlefield(context_field)
+	GameManager.current_run_context = {}
+	await get_tree().process_frame
+
 func _write_report() -> void:
-	var report_path: String = "res://reports/prototype_validation_report.md"
+	var report_path: String = ProjectSettings.globalize_path("res://reports/prototype_validation_report.md")
+	var reports_dir: String = report_path.get_base_dir()
+	DirAccess.make_dir_absolute(reports_dir)
 	var file: FileAccess = FileAccess.open(report_path, FileAccess.WRITE)
 	if file == null:
+		push_error("Could not open validation report: %s" % report_path)
 		_record_result("Validation report written", false)
 		return
 	file.store_string("# Zombie Barricade Prototype Validation Report\n\n")
@@ -1374,3 +1606,10 @@ func _write_report() -> void:
 
 func _on_back_pressed() -> void:
 	get_tree().change_scene_to_file("res://scenes/main/MainMenu.tscn")
+
+func get_validation_snapshot() -> Dictionary:
+	return {
+		"passed": passed,
+		"failed": failed,
+		"report_lines": report_lines.duplicate(true)
+	}

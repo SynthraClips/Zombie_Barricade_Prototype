@@ -1,8 +1,15 @@
 {
   "walker": {"name": "Walker", "hp": 25, "speed": 45, "damage": 8, "attack_range": 34, "reward_value": 4, "color": "#79a35d", "special_behavior": "none"},
   "runner": {"name": "Runner", "hp": 19, "speed": 74, "damage": 7, "attack_range": 28, "reward_value": 5, "color": "#d0aa50", "special_behavior": "runner"},
+  "dog": {"name": "Zombie Dog", "hp": 12, "speed": 112, "damage": 6, "attack_range": 24, "reward_value": 4, "color": "#b77a4d", "special_behavior": "dog"},
+  "crawler": {"name": "Crawler", "hp": 18, "speed": 34, "damage": 7, "attack_range": 20, "reward_value": 5, "color": "#7f8a5c", "special_behavior": "crawler"},
+  "screamer": {"name": "Screamer", "hp": 22, "speed": 40, "damage": 5, "attack_range": 32, "reward_value": 9, "color": "#a95fa4", "special_behavior": "screamer"},
+  "grabber": {"name": "Grabber", "hp": 36, "speed": 38, "damage": 12, "attack_range": 34, "reward_value": 10, "color": "#816d9c", "special_behavior": "grabber"},
   "tank": {"name": "Tank", "hp": 84, "speed": 29, "damage": 16, "attack_range": 38, "reward_value": 12, "color": "#556b2f", "special_behavior": "tank"},
+  "brute_charger": {"name": "Brute Charger", "hp": 120, "speed": 26, "damage": 22, "attack_range": 38, "reward_value": 18, "color": "#7d4737", "special_behavior": "brute_charger"},
   "exploder": {"name": "Exploder", "hp": 20, "speed": 48, "damage": 22, "attack_range": 20, "reward_value": 7, "color": "#cf5f4d", "special_behavior": "exploder"},
   "spitter": {"name": "Spitter", "hp": 28, "speed": 35, "damage": 6, "attack_range": 180, "reward_value": 8, "color": "#7a60c9", "special_behavior": "spitter"},
+  "treasure_horde": {"name": "Treasure Horde", "hp": 160, "speed": 22, "damage": 10, "attack_range": 30, "reward_value": 24, "color": "#c9a14d", "special_behavior": "treasure_horde"},
+  "armoured_walker": {"name": "Armoured Walker", "hp": 68, "speed": 32, "damage": 11, "attack_range": 34, "reward_value": 11, "color": "#657b84", "special_behavior": "none"},
   "boss": {"name": "Boss", "hp": 300, "speed": 24, "damage": 20, "attack_range": 44, "reward_value": 40, "color": "#c23f3f", "special_behavior": "boss"}
 }

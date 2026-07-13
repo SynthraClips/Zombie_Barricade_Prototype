@@ -8,6 +8,11 @@
 
 config_version=5
 
+[addons]
+
+yggdrasil/root_path="res://yggdrasil"
+yggdrasil/registry_filename="registry.tres"
+
 [application]
 
 config/name="Zombie Barricade Prototype"
@@ -21,12 +26,18 @@ SaveManager="*res://scripts/core/SaveManager.gd"
 UpgradeManager="*res://scripts/upgrades/UpgradeManager.gd"
 MissionManager="*res://scripts/missions/MissionManager.gd"
 AudioManager="*res://scripts/core/AudioManager.gd"
+YggdrasilLoader="*res://addons/yggdrasil/scripts/shared/yggdrasil_loader.gd"
+YggdrasilSerializer="*res://addons/yggdrasil/scripts/runtime/yggdrasil_serializer.gd"
 
 [display]
 
-window/size/viewport_width=720
+window/size/viewport_width=1080
 window/size/viewport_height=1280
 window/stretch/mode="canvas_items"
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/yggdrasil/plugin.cfg")
 
 [rendering]
 

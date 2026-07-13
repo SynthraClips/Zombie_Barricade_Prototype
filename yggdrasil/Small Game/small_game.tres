@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="YggdrasilGroup" format=3 uid="uid://b00of8ct8vm0u"]
+
+[ext_resource type="Script" path="res://addons/yggdrasil/scripts/resources/yggdrasil_group.gd" id="1_73663"]
+[ext_resource type="Resource" path="res://yggdrasil/Small Game/safehouse_upgrade_tree.tres" id="2_pvkwc"]
+
+[resource]
+script = ExtResource("1_73663")
+name = "Small Game"
+trees = [ExtResource("2_pvkwc")]

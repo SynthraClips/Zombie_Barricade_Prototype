@@ -1,0 +1,26 @@
+{
+  "asset": "goblin-sword-spritesheet.png",
+  "format": "RGBA PNG",
+  "sheet": {
+    "width": 1536,
+    "height": 1024,
+    "columns": 6,
+    "rows": 4,
+    "frameWidth": 256,
+    "frameHeight": 256
+  },
+  "origin": { "x": 128, "y": 220 },
+  "defaultFps": 10,
+  "animations": {
+    "walk_down":  { "row": 0, "frames": [0, 1, 2, 3, 4, 5], "loop": true },
+    "walk_up":    { "row": 1, "frames": [0, 1, 2, 3, 4, 5], "loop": true },
+    "walk_left":  { "row": 2, "frames": [0, 1, 2, 3, 4, 5], "loop": true },
+    "walk_right": { "row": 3, "frames": [0, 1, 2, 3, 4, 5], "loop": true }
+  },
+  "frameFiles": {
+    "walk_down":  "frames/down/down_00.png ... down_05.png",
+    "walk_up":    "frames/up/up_00.png ... up_05.png",
+    "walk_left":  "frames/left/left_00.png ... left_05.png",
+    "walk_right": "frames/right/right_00.png ... right_05.png"
+  }
+}

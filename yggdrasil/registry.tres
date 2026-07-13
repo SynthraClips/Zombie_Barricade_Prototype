@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="YggdrasilRegistry" format=3 uid="uid://dnj8ftm7tskar"]
+
+[ext_resource type="Resource" path="res://yggdrasil/Small Game/small_game.tres" id="1_dwfij"]
+[ext_resource type="Script" path="res://addons/yggdrasil/scripts/resources/yggdrasil_registry.gd" id="1_ubga3"]
+
+[resource]
+script = ExtResource("1_ubga3")
+groups = [ExtResource("1_dwfij")]

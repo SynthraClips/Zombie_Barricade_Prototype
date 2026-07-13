@@ -1,0 +1,563 @@
+[gd_resource type="Resource" script_class="YggdrasilTree" format=3 uid="uid://ddk3hhuvb0uh7"]
+
+[ext_resource type="Script" uid="uid://cri0khs3wypbm" path="res://addons/yggdrasil/scripts/resources/yggdrasil_attribute.gd" id="1_iu0hx"]
+[ext_resource type="Script" uid="uid://dsrk0byl742tb" path="res://addons/yggdrasil/scripts/resources/yggdrasil_node.gd" id="2_3jj81"]
+[ext_resource type="Script" uid="uid://e7tfsgtpbob6" path="res://addons/yggdrasil/scripts/resources/yggdrasil_tree.gd" id="3_6yott"]
+
+[sub_resource type="Resource" id="Resource_3jj81"]
+script = ExtResource("1_iu0hx")
+id = "safehouse_branch"
+name = "Safehouse Branch"
+effect = "Branch: #"
+value_count = 1
+
+[sub_resource type="Resource" id="Resource_iu0hx"]
+script = ExtResource("1_iu0hx")
+id = "stable_upgrade_id"
+name = "Stable Upgrade ID"
+effect = "Stable ID: #"
+value_count = 1
+
+[sub_resource type="Resource" id="Resource_6yott"]
+script = ExtResource("2_3jj81")
+is_root = true
+id = 1
+external_id = "SAFEHOUSE"
+name = "SAFEHOUSE"
+description = "Permanent preparations between runs"
+type = 1
+position = Vector2(-900, 0)
+line_data = {
+2: Object(RefCounted,"script":Resource("res://addons/yggdrasil/scripts/shared/yggdrasil_line_data.gd"),"line_type":0,"curve_height":48.0,"segments":16,"reversed":false)
+,
+4: Object(RefCounted,"script":Resource("res://addons/yggdrasil/scripts/shared/yggdrasil_line_data.gd"),"line_type":0,"curve_height":48.0,"segments":16,"reversed":false)
+,
+7: Object(RefCounted,"script":Resource("res://addons/yggdrasil/scripts/shared/yggdrasil_line_data.gd"),"line_type":0,"curve_height":48.0,"segments":16,"reversed":false)
+,
+12: Object(RefCounted,"script":Resource("res://addons/yggdrasil/scripts/shared/yggdrasil_line_data.gd"),"line_type":0,"curve_height":48.0,"segments":16,"reversed":false)
+,
+17: Object(RefCounted,"script":Resource("res://addons/yggdrasil/scripts/shared/yggdrasil_line_data.gd"),"line_type":0,"curve_height":48.0,"segments":16,"reversed":false)
+,
+19: Object(RefCounted,"script":Resource("res://addons/yggdrasil/scripts/shared/yggdrasil_line_data.gd"),"line_type":0,"curve_height":48.0,"segments":16,"reversed":false)
+,
+22: Object(RefCounted,"script":Resource("res://addons/yggdrasil/scripts/shared/yggdrasil_line_data.gd"),"line_type":0,"curve_height":48.0,"segments":16,"reversed":false)
+
+}
+out_nodes = [2, 4, 7, 12, 17, 19, 22]
+in_nodes = []
+attributes = {
+"safehouse_branch": ["Root"],
+"stable_upgrade_id": ["safehouse_root"]
+}
+max_allocations = 1
+
+[sub_resource type="Resource" id="Resource_3volr"]
+script = ExtResource("2_3jj81")
+id = 2
+external_id = "Rifle Damage I"
+name = "Rifle Damage I"
+description = "Sharpen squad weapon drills."
+type = 1
+position = Vector2(-600, -520)
+line_data = {
+3: Object(RefCounted,"script":Resource("res://addons/yggdrasil/scripts/shared/yggdrasil_line_data.gd"),"line_type":0,"curve_height":48.0,"segments":16,"reversed":false)
+,
+6: Object(RefCounted,"script":Resource("res://addons/yggdrasil/scripts/shared/yggdrasil_line_data.gd"),"line_type":0,"curve_height":48.0,"segments":16,"reversed":false)
+
+}
+out_nodes = [3, 6]
+in_nodes = [1]
+attributes = {
+"safehouse_branch": ["Arsenal"],
+"stable_upgrade_id": ["arsenal_rifle_damage_01"]
+}
+max_allocations = 1
+
+[sub_resource type="Resource" id="Resource_e2nmf"]
+script = ExtResource("2_3jj81")
+id = 3
+external_id = "Deadeye Training"
+name = "Deadeye Training"
+description = "Improve the chance of critical hits."
+type = 1
+position = Vector2(-270, -520)
+line_data = {}
+out_nodes = []
+in_nodes = [2]
+attributes = {
+"safehouse_branch": ["Arsenal"],
+"stable_upgrade_id": ["arsenal_rifle_damage_02"]
+}
+max_allocations = 1
+
+[sub_resource type="Resource" id="Resource_5owkg"]
+script = ExtResource("2_3jj81")
+id = 4
+external_id = "Rapid Cycling"
+name = "Rapid Cycling"
+description = "Improve the firing line cadence."
+type = 1
+position = Vector2(60, -520)
+line_data = {
+5: Object(RefCounted,"script":Resource("res://addons/yggdrasil/scripts/shared/yggdrasil_line_data.gd"),"line_type":0,"curve_height":48.0,"segments":16,"reversed":false)
+,
+6: Object(RefCounted,"script":Resource("res://addons/yggdrasil/scripts/shared/yggdrasil_line_data.gd"),"line_type":0,"curve_height":48.0,"segments":16,"reversed":false)
+
+}
+out_nodes = [5, 6]
+in_nodes = [1]
+attributes = {
+"safehouse_branch": ["Arsenal"],
+"stable_upgrade_id": ["arsenal_fire_rate_01"]
+}
+max_allocations = 1
+
+[sub_resource type="Resource" id="Resource_igcrd"]
+script = ExtResource("2_3jj81")
+id = 5
+external_id = "Special Ammo Cases"
+name = "Special Ammo Cases"
+description = "Extend temporary special-ammunition effects."
+type = 1
+position = Vector2(390, -520)
+line_data = {}
+out_nodes = []
+in_nodes = [4]
+attributes = {
+"safehouse_branch": ["Arsenal"],
+"stable_upgrade_id": ["arsenal_fire_rate_02"]
+}
+max_allocations = 1
+
+[sub_resource type="Resource" id="Resource_nmcuf"]
+script = ExtResource("2_3jj81")
+id = 6
+external_id = "Improved Starting Weapon"
+name = "Improved Starting Weapon"
+description = "Begin each run with a shotgun."
+type = 1
+position = Vector2(720, -520)
+line_data = {}
+out_nodes = []
+in_nodes = [2, 4]
+attributes = {
+"safehouse_branch": ["Arsenal"],
+"stable_upgrade_id": ["arsenal_critical_chance_01"]
+}
+max_allocations = 1
+
+[sub_resource type="Resource" id="Resource_odn13"]
+script = ExtResource("2_3jj81")
+id = 7
+external_id = "Ready Recruit I"
+name = "Ready Recruit I"
+description = "Begin each run with one extra soldier."
+type = 1
+position = Vector2(-504, -196)
+line_data = {
+8: Object(RefCounted,"script":Resource("res://addons/yggdrasil/scripts/shared/yggdrasil_line_data.gd"),"line_type":0,"curve_height":48.0,"segments":16,"reversed":false)
+,
+9: Object(RefCounted,"script":Resource("res://addons/yggdrasil/scripts/shared/yggdrasil_line_data.gd"),"line_type":0,"curve_height":48.0,"segments":16,"reversed":false)
+,
+10: Object(RefCounted,"script":Resource("res://addons/yggdrasil/scripts/shared/yggdrasil_line_data.gd"),"line_type":0,"curve_height":48.0,"segments":16,"reversed":false)
+
+}
+out_nodes = [8, 9, 10]
+in_nodes = [1]
+attributes = {
+"safehouse_branch": ["Squad"],
+"stable_upgrade_id": ["squad_starting_soldier_01"]
+}
+max_allocations = 1
+
+[sub_resource type="Resource" id="Resource_d0w83"]
+script = ExtResource("2_3jj81")
+id = 8
+external_id = "Ready Recruit II"
+name = "Ready Recruit II"
+description = "Add another trained soldier at deployment."
+type = 1
+position = Vector2(-270, -260)
+line_data = {}
+out_nodes = []
+in_nodes = [7]
+attributes = {
+"safehouse_branch": ["Squad"],
+"stable_upgrade_id": ["squad_starting_soldier_02"]
+}
+max_allocations = 1
+
+[sub_resource type="Resource" id="Resource_afcg4"]
+script = ExtResource("2_3jj81")
+id = 9
+external_id = "Veteran Drills"
+name = "Veteran Drills"
+description = "Increase all soldier damage."
+type = 1
+position = Vector2(60, -260)
+line_data = {
+11: Object(RefCounted,"script":Resource("res://addons/yggdrasil/scripts/shared/yggdrasil_line_data.gd"),"line_type":0,"curve_height":48.0,"segments":16,"reversed":false)
+
+}
+out_nodes = [11]
+in_nodes = [7]
+attributes = {
+"safehouse_branch": ["Squad"],
+"stable_upgrade_id": ["squad_veteran_drills_01"]
+}
+max_allocations = 1
+
+[sub_resource type="Resource" id="Resource_facn7"]
+script = ExtResource("2_3jj81")
+id = 10
+external_id = "Field Engineer"
+name = "Field Engineer"
+description = "Deploy with an engineer support specialist."
+type = 1
+position = Vector2(390, -260)
+line_data = {}
+out_nodes = []
+in_nodes = [7]
+attributes = {
+"safehouse_branch": ["Squad"],
+"stable_upgrade_id": ["squad_support_engineer_01"]
+}
+max_allocations = 1
+
+[sub_resource type="Resource" id="Resource_xwp0n"]
+script = ExtResource("2_3jj81")
+id = 11
+external_id = "Rescue Network"
+name = "Rescue Network"
+description = "Improve route reward payouts after rescues."
+type = 1
+position = Vector2(720, -260)
+line_data = {}
+out_nodes = []
+in_nodes = [9]
+attributes = {
+"safehouse_branch": ["Squad"],
+"stable_upgrade_id": ["squad_rescue_bonus_01"]
+}
+max_allocations = 1
+
+[sub_resource type="Resource" id="Resource_6207i"]
+script = ExtResource("2_3jj81")
+id = 12
+external_id = "Reinforced Frames I"
+name = "Reinforced Frames I"
+description = "Increase barricade maximum health."
+type = 1
+position = Vector2(-600, 0)
+line_data = {
+13: Object(RefCounted,"script":Resource("res://addons/yggdrasil/scripts/shared/yggdrasil_line_data.gd"),"line_type":0,"curve_height":48.0,"segments":16,"reversed":false)
+,
+14: Object(RefCounted,"script":Resource("res://addons/yggdrasil/scripts/shared/yggdrasil_line_data.gd"),"line_type":0,"curve_height":48.0,"segments":16,"reversed":false)
+,
+15: Object(RefCounted,"script":Resource("res://addons/yggdrasil/scripts/shared/yggdrasil_line_data.gd"),"line_type":0,"curve_height":48.0,"segments":16,"reversed":false)
+
+}
+out_nodes = [13, 14, 15]
+in_nodes = [1]
+attributes = {
+"safehouse_branch": ["Barricade"],
+"stable_upgrade_id": ["barricade_max_health_01"]
+}
+max_allocations = 1
+
+[sub_resource type="Resource" id="Resource_6wxlj"]
+script = ExtResource("2_3jj81")
+id = 13
+external_id = "Metal Wall Plans"
+name = "Metal Wall Plans"
+description = "Begin with the metal-wall barricade blueprint."
+type = 1
+position = Vector2(-270, 0)
+line_data = {}
+out_nodes = []
+in_nodes = [12]
+attributes = {
+"safehouse_branch": ["Barricade"],
+"stable_upgrade_id": ["barricade_max_health_02"]
+}
+max_allocations = 1
+
+[sub_resource type="Resource" id="Resource_8elm0"]
+script = ExtResource("2_3jj81")
+id = 14
+external_id = "Rapid Deployment"
+name = "Rapid Deployment"
+description = "Reduce barricade deployment cooldown."
+type = 1
+position = Vector2(60, 0)
+line_data = {}
+out_nodes = []
+in_nodes = [12]
+attributes = {
+"safehouse_branch": ["Barricade"],
+"stable_upgrade_id": ["barricade_cooldown_01"]
+}
+max_allocations = 1
+
+[sub_resource type="Resource" id="Resource_fe7jd"]
+script = ExtResource("2_3jj81")
+id = 15
+external_id = "Improved Repair Kits"
+name = "Improved Repair Kits"
+description = "Repair pickups restore more barricade health."
+type = 1
+position = Vector2(390, 0)
+line_data = {
+16: Object(RefCounted,"script":Resource("res://addons/yggdrasil/scripts/shared/yggdrasil_line_data.gd"),"line_type":0,"curve_height":48.0,"segments":16,"reversed":false)
+
+}
+out_nodes = [16]
+in_nodes = [12]
+attributes = {
+"safehouse_branch": ["Barricade"],
+"stable_upgrade_id": ["barricade_repair_01"]
+}
+max_allocations = 1
+
+[sub_resource type="Resource" id="Resource_l4r4a"]
+script = ExtResource("2_3jj81")
+id = 16
+external_id = "Workshop Crew"
+name = "Workshop Crew"
+description = "Engineers passively repair barricades faster."
+type = 1
+position = Vector2(720, 0)
+line_data = {}
+out_nodes = []
+in_nodes = [15]
+attributes = {
+"safehouse_branch": ["Barricade"],
+"stable_upgrade_id": ["barricade_auto_repair_01"]
+}
+max_allocations = 1
+
+[sub_resource type="Resource" id="Resource_3om3d"]
+script = ExtResource("2_3jj81")
+id = 17
+external_id = "Salvage Ledgers I"
+name = "Salvage Ledgers I"
+description = "Bank more currency from every haul."
+type = 1
+position = Vector2(-600, 260)
+line_data = {
+18: Object(RefCounted,"script":Resource("res://addons/yggdrasil/scripts/shared/yggdrasil_line_data.gd"),"line_type":0,"curve_height":48.0,"segments":16,"reversed":false)
+,
+20: Object(RefCounted,"script":Resource("res://addons/yggdrasil/scripts/shared/yggdrasil_line_data.gd"),"line_type":0,"curve_height":48.0,"segments":16,"reversed":false)
+
+}
+out_nodes = [18, 20]
+in_nodes = [1]
+attributes = {
+"safehouse_branch": ["Logistics"],
+"stable_upgrade_id": ["logistics_reward_bonus_01"]
+}
+max_allocations = 1
+
+[sub_resource type="Resource" id="Resource_i8lfs"]
+script = ExtResource("2_3jj81")
+id = 18
+external_id = "After-Action Accounting"
+name = "After-Action Accounting"
+description = "Bank a larger end-of-run report reward."
+type = 1
+position = Vector2(-270, 260)
+line_data = {}
+out_nodes = []
+in_nodes = [17]
+attributes = {
+"safehouse_branch": ["Logistics"],
+"stable_upgrade_id": ["logistics_reward_bonus_02"]
+}
+max_allocations = 1
+
+[sub_resource type="Resource" id="Resource_x8pku"]
+script = ExtResource("2_3jj81")
+id = 19
+external_id = "Magnetic Satchels"
+name = "Magnetic Satchels"
+description = "Increase the field pickup radius."
+type = 1
+position = Vector2(60, 260)
+line_data = {
+21: Object(RefCounted,"script":Resource("res://addons/yggdrasil/scripts/shared/yggdrasil_line_data.gd"),"line_type":0,"curve_height":48.0,"segments":16,"reversed":false)
+
+}
+out_nodes = [21]
+in_nodes = [1]
+attributes = {
+"safehouse_branch": ["Logistics"],
+"stable_upgrade_id": ["logistics_pickup_radius_01"]
+}
+max_allocations = 1
+
+[sub_resource type="Resource" id="Resource_unbdn"]
+script = ExtResource("2_3jj81")
+id = 20
+external_id = "Route Intelligence"
+name = "Route Intelligence"
+description = "Improve route-based reward payouts."
+type = 1
+position = Vector2(390, 260)
+line_data = {
+21: Object(RefCounted,"script":Resource("res://addons/yggdrasil/scripts/shared/yggdrasil_line_data.gd"),"line_type":0,"curve_height":48.0,"segments":16,"reversed":false)
+
+}
+out_nodes = [21]
+in_nodes = [17]
+attributes = {
+"safehouse_branch": ["Logistics"],
+"stable_upgrade_id": ["logistics_route_bonus_01"]
+}
+max_allocations = 1
+
+[sub_resource type="Resource" id="Resource_lbuvc"]
+script = ExtResource("2_3jj81")
+id = 21
+external_id = "Quartermaster Contacts"
+name = "Quartermaster Contacts"
+description = "Improve the chance of rare route drops."
+type = 1
+position = Vector2(720, 260)
+line_data = {}
+out_nodes = []
+in_nodes = [19, 20]
+attributes = {
+"safehouse_branch": ["Logistics"],
+"stable_upgrade_id": ["logistics_loot_rarity_01"]
+}
+max_allocations = 1
+
+[sub_resource type="Resource" id="Resource_r5ok5"]
+script = ExtResource("2_3jj81")
+id = 22
+external_id = "Extended Deployment I"
+name = "Extended Deployment I"
+description = "Keep called-in heroes active longer."
+type = 1
+position = Vector2(-600, 520)
+line_data = {
+23: Object(RefCounted,"script":Resource("res://addons/yggdrasil/scripts/shared/yggdrasil_line_data.gd"),"line_type":0,"curve_height":48.0,"segments":16,"reversed":false)
+,
+24: Object(RefCounted,"script":Resource("res://addons/yggdrasil/scripts/shared/yggdrasil_line_data.gd"),"line_type":0,"curve_height":48.0,"segments":16,"reversed":false)
+,
+25: Object(RefCounted,"script":Resource("res://addons/yggdrasil/scripts/shared/yggdrasil_line_data.gd"),"line_type":0,"curve_height":48.0,"segments":16,"reversed":false)
+
+}
+out_nodes = [23, 24, 25]
+in_nodes = [1]
+attributes = {
+"safehouse_branch": ["Heroes"],
+"stable_upgrade_id": ["hero_duration_01"]
+}
+max_allocations = 1
+
+[sub_resource type="Resource" id="Resource_4uubj"]
+script = ExtResource("2_3jj81")
+id = 23
+external_id = "Extended Deployment II"
+name = "Extended Deployment II"
+description = "Extend hero deployment time again."
+type = 1
+position = Vector2(-270, 520)
+line_data = {}
+out_nodes = []
+in_nodes = [22]
+attributes = {
+"safehouse_branch": ["Heroes"],
+"stable_upgrade_id": ["hero_duration_02"]
+}
+max_allocations = 1
+
+[sub_resource type="Resource" id="Resource_8j4ld"]
+script = ExtResource("2_3jj81")
+id = 24
+external_id = "Priority Radio"
+name = "Priority Radio"
+description = "Reduce time between hero call-ins."
+type = 1
+position = Vector2(60, 520)
+line_data = {
+26: Object(RefCounted,"script":Resource("res://addons/yggdrasil/scripts/shared/yggdrasil_line_data.gd"),"line_type":0,"curve_height":48.0,"segments":16,"reversed":false)
+
+}
+out_nodes = [26]
+in_nodes = [22]
+attributes = {
+"safehouse_branch": ["Heroes"],
+"stable_upgrade_id": ["hero_cooldown_01"]
+}
+max_allocations = 1
+
+[sub_resource type="Resource" id="Resource_fl011"]
+script = ExtResource("2_3jj81")
+id = 25
+external_id = "Hero Arsenal"
+name = "Hero Arsenal"
+description = "Strengthen hero call-ins and ultimates."
+type = 1
+position = Vector2(390, 520)
+line_data = {
+26: Object(RefCounted,"script":Resource("res://addons/yggdrasil/scripts/shared/yggdrasil_line_data.gd"),"line_type":0,"curve_height":48.0,"segments":16,"reversed":false)
+
+}
+out_nodes = [26]
+in_nodes = [22]
+attributes = {
+"safehouse_branch": ["Heroes"],
+"stable_upgrade_id": ["hero_power_01"]
+}
+max_allocations = 1
+
+[sub_resource type="Resource" id="Resource_fqjup"]
+script = ExtResource("2_3jj81")
+id = 26
+external_id = "Ultimate Protocol"
+name = "Ultimate Protocol"
+description = "Further strengthen every hero ultimate."
+type = 1
+position = Vector2(720, 520)
+line_data = {}
+out_nodes = []
+in_nodes = [24, 25]
+attributes = {
+"safehouse_branch": ["Heroes"],
+"stable_upgrade_id": ["hero_ultimate_01"]
+}
+max_allocations = 1
+
+[resource]
+script = ExtResource("3_6yott")
+id = "safehouse_upgrade_tree"
+name = "Safehouse Upgrade Tree"
+allocation = false
+preallocation = false
+size = Vector2(2200, 1500)
+bg_color = Color(0.08235294, 0.10980392, 0.13333334, 1)
+id_counter = 27
+icon_sizes = {
+0: Vector2(0, 0),
+1: Vector2(0, 0),
+2: Vector2(0, 0)
+}
+icons = {
+0: null,
+1: null,
+2: null
+}
+node_size = {
+0: Vector2(27, 27),
+1: Vector2(170, 76),
+2: Vector2(64, 64)
+}
+nodes = [SubResource("Resource_6yott"), SubResource("Resource_3volr"), SubResource("Resource_e2nmf"), SubResource("Resource_5owkg"), SubResource("Resource_igcrd"), SubResource("Resource_nmcuf"), SubResource("Resource_odn13"), SubResource("Resource_d0w83"), SubResource("Resource_afcg4"), SubResource("Resource_facn7"), SubResource("Resource_xwp0n"), SubResource("Resource_6207i"), SubResource("Resource_6wxlj"), SubResource("Resource_8elm0"), SubResource("Resource_fe7jd"), SubResource("Resource_l4r4a"), SubResource("Resource_3om3d"), SubResource("Resource_i8lfs"), SubResource("Resource_x8pku"), SubResource("Resource_unbdn"), SubResource("Resource_lbuvc"), SubResource("Resource_r5ok5"), SubResource("Resource_4uubj"), SubResource("Resource_8j4ld"), SubResource("Resource_fl011"), SubResource("Resource_fqjup")]
+decorations = []
+prefabs = {}
+attributes = {
+"safehouse_branch": SubResource("Resource_3jj81"),
+"stable_upgrade_id": SubResource("Resource_iu0hx")
+}

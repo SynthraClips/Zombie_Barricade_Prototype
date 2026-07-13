@@ -4,5 +4,6 @@
   "minigun": {"name": "Minigun", "damage": 4, "fire_rate": 7.5, "range": 400, "projectile_speed": 620, "spread": 0.12, "splash_radius": 0, "pierce_count": 0, "vfx_placeholder": "stream", "projectile_count": 1, "hitscan": false},
   "flamethrower": {"name": "Flamethrower", "damage": 3, "fire_rate": 8.0, "range": 250, "projectile_speed": 260, "spread": 0.22, "splash_radius": 24, "pierce_count": 2, "vfx_placeholder": "flame", "projectile_count": 1, "hitscan": false},
   "rocket_launcher": {"name": "Rocket Launcher", "damage": 24, "fire_rate": 0.7, "range": 460, "projectile_speed": 320, "spread": 0.04, "splash_radius": 48, "pierce_count": 0, "vfx_placeholder": "rocket", "projectile_count": 1, "hitscan": false},
-  "tesla_cannon": {"name": "Tesla Cannon", "damage": 7, "fire_rate": 4.0, "range": 380, "projectile_speed": 700, "spread": 0.0, "splash_radius": 0, "pierce_count": 3, "vfx_placeholder": "arc", "projectile_count": 1, "hitscan": true}
+  "sniper_rifle": {"name": "Sniper Rifle", "damage": 34, "fire_rate": 0.75, "range": 620, "projectile_speed": 920, "spread": 0.0, "splash_radius": 0, "pierce_count": 1, "vfx_placeholder": "trail", "projectile_count": 1, "hitscan": true},
+  "tesla_cannon": {"name": "Tesla Cannon", "damage": 7, "fire_rate": 4.0, "range": 620, "max_effective_range": 700, "chain_jump_range": 140, "projectile_speed": 700, "spread": 0.0, "splash_radius": 0, "pierce_count": 2, "vfx_placeholder": "arc", "projectile_count": 1, "hitscan": true}
 }

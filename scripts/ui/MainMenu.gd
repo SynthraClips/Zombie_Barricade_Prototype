@@ -6,6 +6,8 @@ var best_distance_label: Label
 var kills_label: Label
 var bosses_label: Label
 var missions_label: Label
+var daily_label: Label
+var hero_label: Label
 var quit_button: Button
 var root_row: BoxContainer
 var main_card: Control
@@ -15,17 +17,26 @@ var title_label: Label
 var title_pulse := 0.0
 
 func _ready() -> void:
+	# Direct project-manager launches can instantiate the main scene before every
+	# autoload has completed _ready(). Refresh the authoritative project save
+	# before presenting progression, then synchronize stable tree IDs.
+	SaveManager.ensure_active_profile()
+	SaveManager.load_save()
+	GameManager.initialize_active_profile()
+	UpgradeManager.synchronize_loaded_save()
 	root_row = get_node_or_null("Layout/RootRow")
 	main_card = get_node_or_null("Layout/RootRow/MainCard")
 	art_panel = get_node_or_null("Layout/RootRow/ArtPanel")
 	title_label = get_node_or_null("Layout/RootRow/MainCard/CardMargin/CardVBox/Title")
-	subtitle_label = get_node_or_null("Layout/MainCard/CardMargin/CardVBox/Subtitle")
-	bank_label = get_node_or_null("Layout/MainCard/CardMargin/CardVBox/Stats/Bank")
-	best_distance_label = get_node_or_null("Layout/MainCard/CardMargin/CardVBox/Stats/BestDistance")
-	kills_label = get_node_or_null("Layout/MainCard/CardMargin/CardVBox/Stats/Kills")
-	bosses_label = get_node_or_null("Layout/MainCard/CardMargin/CardVBox/Stats/Bosses")
-	missions_label = get_node_or_null("Layout/MainCard/CardMargin/CardVBox/Stats/Missions")
-	quit_button = get_node_or_null("Layout/MainCard/CardMargin/CardVBox/Buttons/Quit")
+	subtitle_label = get_node_or_null("Layout/RootRow/MainCard/CardMargin/CardVBox/Subtitle")
+	bank_label = get_node_or_null("Layout/RootRow/MainCard/CardMargin/CardVBox/Stats/Bank")
+	best_distance_label = get_node_or_null("Layout/RootRow/MainCard/CardMargin/CardVBox/Stats/BestDistance")
+	kills_label = get_node_or_null("Layout/RootRow/MainCard/CardMargin/CardVBox/Stats/Kills")
+	bosses_label = get_node_or_null("Layout/RootRow/MainCard/CardMargin/CardVBox/Stats/Bosses")
+	missions_label = get_node_or_null("Layout/RootRow/MainCard/CardMargin/CardVBox/Stats/Missions")
+	daily_label = get_node_or_null("Layout/RootRow/MainCard/CardMargin/CardVBox/Stats/Daily")
+	hero_label = get_node_or_null("Layout/RootRow/MainCard/CardMargin/CardVBox/Stats/Hero")
+	quit_button = get_node_or_null("Layout/RootRow/MainCard/CardMargin/CardVBox/Buttons/Quit")
 	if subtitle_label == null:
 		subtitle_label = get_node_or_null("Margin/Panel/VBox/Subtitle")
 	if bank_label == null:
@@ -55,9 +66,41 @@ func _refresh() -> void:
 		bosses_label.text = "Bosses Defeated: %d" % int(stats.get("boss_kills", 0))
 	if missions_label != null:
 		missions_label.text = "Completed Missions: %d" % int(SaveManager.save_data.get("completed_missions", []).size())
+	if daily_label != null:
+		var daily_state: Dictionary = SaveManager.save_data.get("daily_challenge", {})
+		daily_label.text = "Daily Best: %dm" % int(daily_state.get("best_distance", 0))
+	if hero_label != null:
+		var hero_id: String = String(SaveManager.save_data.get("selected_hero", ""))
+		var hero_def: Dictionary = GameManager.get_hero_def(hero_id)
+		var specialist_count: int = int(SaveManager.save_data.get("specialists", {}).get("unlocked", []).size())
+		hero_label.text = "Hero: %s | Specs: %d" % [String(hero_def.get("name", "None")), specialist_count]
 
 func _on_play_pressed() -> void:
 	GameManager.start_run()
+
+func _on_daily_pressed() -> void:
+	GameManager.start_run(GameManager.build_daily_run_context())
+
+func _on_hero_pressed() -> void:
+	var hero_order: Array = GameManager.get_hero_order()
+	if hero_order.is_empty():
+		return
+	var current_id: String = String(SaveManager.save_data.get("selected_hero", ""))
+	var current_index: int = hero_order.find(current_id)
+	var next_index: int = (current_index + 1) % hero_order.size()
+	var next_id: String = String(hero_order[next_index])
+	var unlocked: Array = SaveManager.save_data.get("heroes", {}).get("unlocked", [])
+	if not unlocked.has(next_id):
+		var hero_def: Dictionary = GameManager.get_hero_def(next_id)
+		var unlock_cost: int = int(hero_def.get("unlock_cost", 0))
+		if unlock_cost > 0 and SaveManager.spend_banked_coins(unlock_cost):
+			unlocked.append(next_id)
+			SaveManager.save_data["heroes"]["unlocked"] = unlocked
+		else:
+			return
+	SaveManager.save_data["selected_hero"] = next_id
+	SaveManager.save_game()
+	_refresh()
 
 func _on_upgrades_pressed() -> void:
 	get_tree().change_scene_to_file("res://scenes/ui/UpgradeScreen.tscn")
@@ -67,6 +110,9 @@ func _on_missions_pressed() -> void:
 
 func _on_settings_pressed() -> void:
 	get_tree().change_scene_to_file("res://scenes/ui/SettingsScreen.tscn")
+
+func _on_profiles_pressed() -> void:
+	get_tree().change_scene_to_file("res://scenes/main/ProfileSelect.tscn")
 
 func _on_validation_pressed() -> void:
 	get_tree().change_scene_to_file("res://scenes/validation/ValidationScene.tscn")

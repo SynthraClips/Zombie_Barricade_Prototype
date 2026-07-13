@@ -8,6 +8,7 @@ var wave_spawned_count := 0
 var current_wave_index := 0
 var boss_milestones: Array = []
 var boss_spawned: Dictionary = {}
+var last_boss_distance := -INF
 
 func setup(run: Node) -> void:
 	run_manager = run
@@ -16,6 +17,8 @@ func setup(run: Node) -> void:
 	current_wave_index = 0
 	wave_spawned_count = 0
 	boss_milestones = GameManager.game_config.get("boss_milestones", [])
+	boss_spawned.clear()
+	last_boss_distance = -INF
 
 func update_spawner(delta: float) -> void:
 	spawn_timer -= delta
@@ -29,11 +32,10 @@ func update_spawner(delta: float) -> void:
 	if spawn_timer <= 0.0:
 		_spawn_enemy_from_wave()
 	for milestone in boss_milestones:
-		var milestone_value := int(milestone)
+		var milestone_value := int(milestone.get("distance", 0)) if milestone is Dictionary else int(milestone)
 		if run_manager.distance_travelled >= milestone_value and not boss_spawned.get(milestone_value, false):
 			boss_spawned[milestone_value] = true
-			run_manager.ui_manager.show_status_message("BOSS INCOMING", Color("ff7d7d"))
-			run_manager.enemy_manager.spawn_enemy("boss", Vector2(run_manager.road.get_center_x(), run_manager.road.get_spawn_y() - 20.0), run_manager.get_difficulty_multiplier())
+			_spawn_route_boss(milestone, milestone_value)
 
 func _spawn_enemy_from_wave() -> void:
 	var waves: Array = GameManager.wave_data.get("waves", [])
@@ -86,6 +88,9 @@ func get_spawn_weight_snapshot(pool: Array) -> Dictionary:
 	var weights: Dictionary = {}
 	for enemy in pool:
 		var enemy_id: String = String(enemy)
+		var minimum_progress := float(GameManager.enemy_data.get(enemy_id, {}).get("min_progress", 0.0))
+		if run_manager != null and run_manager.distance_travelled / max(run_manager.target_distance, 1.0) < minimum_progress:
+			continue
 		weights[enemy_id] = float(weights.get(enemy_id, 0.0)) + 1.0
 	if run_manager == null or run_manager.mutation_manager == null:
 		return weights
@@ -97,7 +102,54 @@ func get_spawn_weight_snapshot(pool: Array) -> Dictionary:
 			weights["dog"] = float(weights["dog"]) * runner_multiplier
 	for enemy_id in weights.keys():
 		weights[enemy_id] = float(weights[enemy_id]) * run_manager.mutation_manager.get_spawn_weight_multiplier(String(enemy_id))
+		weights[enemy_id] = float(weights[enemy_id]) * run_manager.road.get_environment_spawn_weight_multiplier(String(enemy_id))
 	return weights
+
+func _spawn_route_boss(milestone: Variant, milestone_value: int) -> void:
+	var minimum_spacing := float(GameManager.game_config.get("boss_minimum_spacing", 120.0))
+	if run_manager.distance_travelled - last_boss_distance < minimum_spacing:
+		return
+	var allowed: Array = milestone.get("boss_pool", []) if milestone is Dictionary else []
+	if allowed.is_empty():
+		allowed = GameManager.game_config.get("boss_rotation", ["boss"])
+	var valid: Array[String] = []
+	for boss_id_variant in allowed:
+		var boss_id := String(boss_id_variant)
+		var definition: Dictionary = GameManager.enemy_data.get(boss_id, {})
+		if definition.is_empty() or String(definition.get("category", "")) != "boss":
+			continue
+		if bool(definition.get("night_only", false)) and not run_manager.road.is_night():
+			continue
+		valid.append(boss_id)
+	if run_manager.road.is_night() and allowed.has("night_stalker"):
+		valid = ["night_stalker"]
+	if valid.is_empty():
+		valid = ["boss"]
+	var boss_id := valid[randi() % valid.size()]
+	last_boss_distance = run_manager.distance_travelled
+	run_manager.ui_manager.show_status_message("%s INCOMING" % String(GameManager.enemy_data.get(boss_id, {}).get("name", "BOSS")).to_upper(), Color("ff7d7d"))
+	run_manager.enemy_manager.spawn_enemy(boss_id, Vector2(run_manager.road.get_center_x(), run_manager.road.get_spawn_y() - 40.0), run_manager.get_difficulty_multiplier())
+
+func try_spawn_event_boss(boss_pool: Array, event_label: String = "OPTIONAL BOSS") -> bool:
+	var minimum_spacing := float(GameManager.game_config.get("boss_minimum_spacing", 120.0))
+	if run_manager.distance_travelled - last_boss_distance < minimum_spacing:
+		return false
+	var valid: Array[String] = []
+	for boss_id_variant in boss_pool:
+		var candidate_id := String(boss_id_variant)
+		var definition: Dictionary = GameManager.enemy_data.get(candidate_id, {})
+		if definition.is_empty() or String(definition.get("category", "")) != "boss":
+			continue
+		if bool(definition.get("night_only", false)) and not run_manager.road.is_night():
+			continue
+		valid.append(candidate_id)
+	if valid.is_empty():
+		return false
+	var boss_id: String = valid[randi() % valid.size()]
+	last_boss_distance = run_manager.distance_travelled
+	run_manager.ui_manager.show_status_message("%s: %s" % [event_label, String(GameManager.enemy_data.get(boss_id, {}).get("name", "BOSS")).to_upper()], Color("ff7d7d"))
+	run_manager.enemy_manager.spawn_enemy(boss_id, Vector2(run_manager.road.get_center_x(), run_manager.road.get_spawn_y() - 40.0), run_manager.get_difficulty_multiplier())
+	return true
 
 func _pick_road_object_type() -> String:
 	var spawn_entries: Array = GameManager.game_config.get("road_objects", {}).get("spawn_pool", [])

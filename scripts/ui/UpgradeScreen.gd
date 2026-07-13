@@ -120,7 +120,7 @@ func _on_yggdrasil_node_created(node: YggdrasilNodeButton) -> void:
 	node_buttons[upgrade_id] = node
 	node.get_node("Name").text = String(definition.get("display_name", upgrade_id))
 	node.get_node("Badge").text = String(definition.get("branch", "?")).left(1).to_upper()
-	node.get_node("Cost").text = "%d COINS" % int(definition.get("cost", 0))
+	node.get_node("Cost").text = UpgradeManager.format_tree_cost(upgrade_id).to_upper()
 	node.pressed.connect(_select_upgrade.bind(upgrade_id))
 
 func _on_yggdrasil_line_created(line: YggdrasilConnection, from_id: int, to_id: int) -> void:
@@ -133,7 +133,11 @@ func _select_upgrade(upgrade_id: String) -> void:
 	_refresh_all()
 
 func _refresh_all() -> void:
-	coins_label.text = "COINS  %d" % int(SaveManager.save_data.get("banked_coins", 0))
+	coins_label.text = "COINS %d   |   SUPPLIES %d   |   SURVIVORS %d" % [
+		int(SaveManager.save_data.get("banked_coins", 0)),
+		int(SaveManager.save_data.get("supplies", 0)),
+		int(SaveManager.save_data.get("survivors", 0))
+	]
 	for upgrade_id in node_buttons:
 		var node: SafehouseTreeNode = node_buttons[upgrade_id]
 		node.set_safehouse_state(UpgradeManager.get_tree_node_state(upgrade_id))
@@ -143,7 +147,7 @@ func _refresh_all() -> void:
 func _refresh_details() -> void:
 	if selected_upgrade_id.is_empty():
 		title_label.text = "SELECT AN UPGRADE"
-		branch_label.text = "ARSENAL  •  SQUAD  •  BARRICADE  •  LOGISTICS  •  HEROES"
+		branch_label.text = "WEAPONS  |  SQUAD  |  BARRICADE  |  ECONOMY  |  HEROES  |  RESEARCH"
 		description_label.text = "Pan with the middle mouse button and zoom with the wheel. Select a node to inspect its permanent effect."
 		effect_label.text = ""
 		prerequisites_label.text = ""
@@ -158,16 +162,42 @@ func _refresh_details() -> void:
 	description_label.text = String(definition.get("description", ""))
 	effect_label.text = "EFFECT  %s" % _effect_text(definition)
 	var prerequisites: Array = definition.get("prerequisite_ids", [])
-	prerequisites_label.text = "REQUIRES  None" if prerequisites.is_empty() else "REQUIRES  %s" % _prerequisite_names(prerequisites)
-	cost_label.text = "COST  %d COINS   •   AVAILABLE  %d COINS" % [int(definition.get("cost", 0)), int(SaveManager.save_data.get("banked_coins", 0))]
+	var requirement_text := "None" if prerequisites.is_empty() else _prerequisite_names(prerequisites)
+	var requirements: Dictionary = definition.get("requirements", {})
+	if int(requirements.get("survivor_count", 0)) > 0:
+		requirement_text += ", %d rescued Survivors" % int(requirements.get("survivor_count", 0))
+	if not requirements.get("boss_defeats", []).is_empty():
+		requirement_text += ", defeat %s" % ", ".join(requirements.get("boss_defeats", []))
+	if not requirements.get("mutation_research", []).is_empty():
+		requirement_text += ", research %s" % ", ".join(requirements.get("mutation_research", []))
+	prerequisites_label.text = "REQUIRES  %s" % requirement_text
+	cost_label.text = "COST  %s   |   AVAILABLE  %d Coins / %d Supplies / %d Survivors" % [
+		UpgradeManager.format_tree_cost(selected_upgrade_id),
+		int(SaveManager.save_data.get("banked_coins", 0)),
+		int(SaveManager.save_data.get("supplies", 0)),
+		int(SaveManager.save_data.get("survivors", 0))
+	]
 	state_label.text = "STATUS  %s" % state.to_upper()
 	purchase_button.text = "PURCHASE" if state != "purchased" else "PURCHASED"
 	purchase_button.disabled = not UpgradeManager.can_purchase_tree_upgrade(selected_upgrade_id)
 
 func _effect_text(definition: Dictionary) -> String:
-	var effect_type: String = String(definition.get("effect_type", "")).replace("_", " ").capitalize()
-	var value = definition.get("effect_value", 0)
-	if value is float and absf(float(value)) < 1.0 and not String(definition.get("effect_type", "")) in ["hero_duration", "hero_cooldown"]:
+	var parts: Array[String] = [_single_effect_text(String(definition.get("effect_type", "")), definition.get("effect_value", 0))]
+	for extra_effect in definition.get("additional_effects", []):
+		if extra_effect is Dictionary:
+			parts.append(_single_effect_text(String(extra_effect.get("effect_type", "")), extra_effect.get("effect_value", 0)))
+	return "; ".join(parts)
+
+func _single_effect_text(effect_id: String, value: Variant) -> String:
+	match effect_id:
+		"hero_unlock":
+			return "Unlock %s" % String(GameManager.get_hero_def(String(value)).get("name", value))
+		"weapon_unlock":
+			return "Unlock %s" % String(GameManager.weapon_data.get(String(value), {}).get("name", value))
+		"tesla_unlock":
+			return "Unlock Tesla Cannon"
+	var effect_type: String = effect_id.replace("_", " ").capitalize()
+	if value is float and absf(float(value)) < 1.0 and not effect_id in ["hero_duration", "hero_cooldown"]:
 		return "+%d%% %s" % [int(round(float(value) * 100.0)), effect_type]
 	return "+%s %s" % [str(value), effect_type]
 
@@ -182,7 +212,7 @@ func _request_purchase() -> void:
 		_refresh_all()
 		return
 	var definition := UpgradeManager.get_tree_definition(selected_upgrade_id)
-	confirmation.dialog_text = "Purchase %s for %d coins?\n\n%s" % [definition.get("display_name", selected_upgrade_id), definition.get("cost", 0), _effect_text(definition)]
+	confirmation.dialog_text = "Purchase %s for %s?\n\n%s" % [definition.get("display_name", selected_upgrade_id), UpgradeManager.format_tree_cost(selected_upgrade_id), _effect_text(definition)]
 	confirmation.popup_centered(Vector2i(520, 260))
 
 func _confirm_purchase() -> void:

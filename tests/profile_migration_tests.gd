@@ -30,7 +30,7 @@ func _run() -> void:
 	legacy.close()
 	saves.load_profile_index()
 	_expect(saves.profile_exists(0), "legacy save imports into Profile 1")
-	_expect(String(saves.get_profile_summary(0).get("name", "")) == "Player 1", "migration assigns a sensible temporary name")
+	_expect(String(saves.get_profile_summary(0).get("name", "")) == "Profile 1", "migration assigns the standard slot name")
 	_expect(saves.select_profile(0), "migrated Profile 1 can be selected")
 	_expect(int(saves.save_data.get("banked_coins", 0)) == 321 and int(saves.save_data.get("stats", {}).get("runs_completed", 0)) == 7, "migration preserves coins and run history")
 	_expect(int(saves.save_data.get("upgrades", {}).get("soldier_damage", 0)) == 2 and saves.save_data.get("completed_missions", []).has("legacy_mission"), "migration preserves upgrades and mission progression")

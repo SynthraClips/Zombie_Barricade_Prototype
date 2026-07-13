@@ -67,9 +67,8 @@ func _run() -> void:
 	var crossing_time: float = daily_b.road.get_usable_road_width(daily_b.road.get_squad_y()) / float(root.get_node("GameManager").game_config.get("squad_lateral_speed", 520.0)) + 0.75
 	var required_spacing: float = (daily_b.scroll_speed / 10.0) * crossing_time
 	_expect(float(root.get_node("GameManager").gate_data.get("spawn_distance_max", 0.0)) > float(root.get_node("GameManager").gate_data.get("spawn_distance_min", 0.0)) and required_spacing > 0.0, "gate spacing configuration and speed-based crossing calculation are valid")
-	var old_gate_count: float = (525.0 - 18.0) / 32.0
 	var new_gate_count: float = (float(root.get_node("GameManager").game_config.get("target_distance", 0.0)) - float(root.get_node("GameManager").gate_data.get("spawn_start_distance", 0.0))) / ((float(root.get_node("GameManager").gate_data.get("spawn_distance_min", 0.0)) + float(root.get_node("GameManager").gate_data.get("spawn_distance_max", 0.0))) * 0.5)
-	_expect(new_gate_count > old_gate_count, "normal run provides more gate opportunities despite larger decision gaps")
+	_expect(new_gate_count >= 12.0 and new_gate_count <= 18.0, "normal run retains a substantial but controlled number of gate opportunities")
 	daily_b.queue_free()
 	await process_frame
 	var traffic_field := await _make_field({"mode": "normal", "run_seed": 481516})

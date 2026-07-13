@@ -8,13 +8,115 @@ const ROAD_BOTTOM_HALF_WIDTH := 450.0
 const ROAD_MARGIN := 40.0
 
 var line_offset := 0.0
+var night_active := false
+var night_blend := 0.0
+var night_end_distance := INF
+var next_night_check_distance := 0.0
+var next_building_distance := 18.0
+var buildings: Array[Dictionary] = []
+var last_building_id := ""
+var building_textures: Dictionary = {}
+var night_lamp_texture: Texture2D
+
+func _ready() -> void:
+	var definitions: Dictionary = GameManager.environment_data.get("buildings", {}).get("definitions", {})
+	for building_id in definitions:
+		var placeholder_path := String(definitions[building_id].get("placeholder", ""))
+		if placeholder_path != "" and ResourceLoader.exists(placeholder_path):
+			building_textures[String(building_id)] = load(placeholder_path)
+	var lamp_path := String(GameManager.environment_data.get("night", {}).get("lamp_placeholder", ""))
+	if lamp_path != "" and ResourceLoader.exists(lamp_path):
+		night_lamp_texture = load(lamp_path)
 
 func _process(delta: float) -> void:
 	var run: Node = get_parent()
 	if run == null or not run.running or get_tree().paused:
 		return
 	line_offset += run.scroll_speed * delta
+	_update_environment(run, delta)
 	queue_redraw()
+
+func is_night() -> bool:
+	return night_active
+
+func request_night_section() -> bool:
+	var run: Node = get_parent()
+	if run == null or night_active:
+		return false
+	_start_night(run)
+	return true
+
+func get_environment_spawn_weight_multiplier(enemy_id: String) -> float:
+	if not night_active:
+		return 1.0
+	return max(0.01, float(GameManager.environment_data.get("night", {}).get("enemy_weight_multipliers", {}).get(enemy_id, 1.0)))
+
+func get_latest_building_event_bias() -> String:
+	if last_building_id == "":
+		return ""
+	return String(GameManager.environment_data.get("buildings", {}).get("definitions", {}).get(last_building_id, {}).get("event_bias", ""))
+
+func _update_environment(run: Node, delta: float) -> void:
+	var night_config: Dictionary = GameManager.environment_data.get("night", {})
+	var blend_target := 1.0 if night_active else 0.0
+	night_blend = move_toward(night_blend, blend_target, delta / max(0.1, float(night_config.get("transition_seconds", 2.5))))
+	if night_active and run.distance_travelled >= night_end_distance:
+		night_active = false
+		next_night_check_distance = run.distance_travelled + float(night_config.get("minimum_day_gap", 190.0))
+		run.ui_manager.show_status_message("DAWN BREAKS", Color("ffd8a3"))
+	elif not night_active and bool(night_config.get("enabled", true)) and run.distance_travelled >= max(float(night_config.get("minimum_distance", 230.0)), next_night_check_distance):
+		next_night_check_distance = run.distance_travelled + 75.0
+		if randf() <= float(night_config.get("chance_per_check", 0.62)):
+			_start_night(run)
+	if run.distance_travelled >= next_building_distance:
+		_spawn_building(run)
+		next_building_distance = run.distance_travelled + float(GameManager.environment_data.get("buildings", {}).get("spawn_interval_distance", 42.0)) * randf_range(0.75, 1.25)
+	for building in buildings:
+		building["y"] = float(building.get("y", 0.0)) + run.scroll_speed * delta
+	buildings = buildings.filter(func(building): return float(building.get("y", 0.0)) < SCREEN_HEIGHT + 180.0)
+
+func _start_night(run: Node) -> void:
+	var night_config: Dictionary = GameManager.environment_data.get("night", {})
+	night_active = true
+	night_end_distance = run.distance_travelled + float(night_config.get("section_duration_distance", 145.0))
+	run.run_stats["night_sections"] = int(run.run_stats.get("night_sections", 0)) + 1
+	run.ui_manager.show_status_message("NIGHT SECTION AHEAD", Color("9ec9ff"))
+
+func _spawn_building(run: Node) -> void:
+	var config: Dictionary = GameManager.environment_data.get("buildings", {})
+	var definitions: Dictionary = config.get("definitions", {})
+	if definitions.is_empty():
+		return
+	var candidates: Array[String] = []
+	var total := 0.0
+	for id_variant in definitions.keys():
+		var id := String(id_variant)
+		if id == last_building_id and definitions.size() > 1:
+			continue
+		candidates.append(id)
+		total += max(0.01, float(definitions[id].get("weight", 1.0)))
+	var roll := randf() * total
+	var selected_id: String = String(candidates.back())
+	for id in candidates:
+		roll -= max(0.01, float(definitions[id].get("weight", 1.0)))
+		if roll <= 0.0:
+			selected_id = id
+			break
+	last_building_id = selected_id
+	buildings.append({"id":selected_id,"side":-1 if randi() % 2 == 0 else 1,"y":-130.0,"scale":randf_range(0.8,1.12)})
+	while buildings.size() > int(config.get("max_visible", 6)):
+		buildings.pop_front()
+	var event_bias := String(definitions[selected_id].get("event_bias", ""))
+	var progress: float = run.distance_travelled / max(run.target_distance, 1.0)
+	var boss_chance: float = float(definitions[selected_id].get("boss_chance", 0.0))
+	var boss_spawned: bool = false
+	if boss_chance > 0.0 and progress >= float(definitions[selected_id].get("boss_min_progress", 0.0)) and randf() < boss_chance:
+		boss_spawned = run.wave_spawner.try_spawn_event_boss(definitions[selected_id].get("boss_pool", []), "%s BOSS" % String(definitions[selected_id].get("label", "BUILDING")).to_upper())
+	if not boss_spawned and event_bias == "animals" and randf() < 0.28:
+		var spawn_x := get_random_lane_x(get_spawn_y(), 70.0)
+		run.enemy_manager.spawn_enemy("mutated_dog" if randf() < 0.65 else "mutated_boar", Vector2(spawn_x, get_spawn_y() - 40.0), run.get_difficulty_multiplier())
+	elif not boss_spawned and event_bias == "supplies" and randf() < 0.22:
+		run.reward_manager.spawn_reward("supplies_small", Vector2(get_random_lane_x(get_spawn_y(), 70.0), get_spawn_y()))
 
 func get_lane_edges_at_y(y: float) -> Vector2:
 	var t: float = clampf(y / SCREEN_HEIGHT, 0.0, 1.0)
@@ -72,14 +174,18 @@ func get_gate_row_positions(y: float, gate_count: int) -> Array[float]:
 	return positions
 
 func _draw() -> void:
-	draw_rect(Rect2(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT), Color("182026"))
+	var night_config: Dictionary = GameManager.environment_data.get("night", {})
+	var background := Color("182026").lerp(Color(night_config.get("background_color", "#101827")), night_blend)
+	var road_color := Color("2f3844").lerp(Color(night_config.get("road_color", "#273244")), night_blend)
+	draw_rect(Rect2(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT), background)
 	var road_points := PackedVector2Array([
 		Vector2(ROAD_CENTER_X - ROAD_TOP_HALF_WIDTH, 0),
 		Vector2(ROAD_CENTER_X + ROAD_TOP_HALF_WIDTH, 0),
 		Vector2(ROAD_CENTER_X + ROAD_BOTTOM_HALF_WIDTH, SCREEN_HEIGHT),
 		Vector2(ROAD_CENTER_X - ROAD_BOTTOM_HALF_WIDTH, SCREEN_HEIGHT)
 	])
-	draw_polygon(road_points, [Color("2f3844")])
+	draw_polygon(road_points, [road_color])
+	_draw_buildings()
 	var shoulder_points := PackedVector2Array([
 		Vector2(ROAD_CENTER_X - ROAD_TOP_HALF_WIDTH - 18.0, 0),
 		Vector2(ROAD_CENTER_X + ROAD_TOP_HALF_WIDTH + 18.0, 0),
@@ -101,3 +207,30 @@ func _draw() -> void:
 		y += 120.0
 	draw_line(Vector2(ROAD_CENTER_X - ROAD_TOP_HALF_WIDTH, 0), Vector2(ROAD_CENTER_X - ROAD_BOTTOM_HALF_WIDTH, SCREEN_HEIGHT), Color("a7b0b8"), 6.0)
 	draw_line(Vector2(ROAD_CENTER_X + ROAD_TOP_HALF_WIDTH, 0), Vector2(ROAD_CENTER_X + ROAD_BOTTOM_HALF_WIDTH, SCREEN_HEIGHT), Color("a7b0b8"), 6.0)
+	if night_blend > 0.01:
+		var moonlight := Color(night_config.get("moonlight_color", "#8fb9e8"), night_blend * 0.12)
+		draw_circle(Vector2(900, 105), 56.0, moonlight)
+		for lamp_x in [118.0, 962.0]:
+			draw_circle(Vector2(lamp_x, 360), 92.0, Color("ffd88a", night_blend * 0.08))
+			if night_lamp_texture != null:
+				draw_texture_rect(night_lamp_texture, Rect2(lamp_x - 20.0, 300.0, 40.0, 96.0), false, Color(1.0, 1.0, 1.0, maxf(0.35, night_blend)))
+
+func _draw_buildings() -> void:
+	var definitions: Dictionary = GameManager.environment_data.get("buildings", {}).get("definitions", {})
+	for building in buildings:
+		var definition: Dictionary = definitions.get(String(building.get("id", "")), {})
+		var side := int(building.get("side", -1))
+		var y := float(building.get("y", 0.0))
+		var size_scale := float(building.get("scale", 1.0))
+		var width := 120.0 * size_scale
+		var height := 96.0 * size_scale
+		var x := 18.0 if side < 0 else SCREEN_WIDTH - width - 18.0
+		var building_texture: Texture2D = building_textures.get(String(building.get("id", "")))
+		if building_texture != null:
+			draw_texture_rect(building_texture, Rect2(x, y, width, height), false, Color.WHITE)
+		else:
+			draw_rect(Rect2(x, y, width, height), Color(definition.get("color", "#555555")))
+		draw_rect(Rect2(x, y, width, height), Color("20252b"), false, 4.0)
+		if night_blend > 0.1 and bool(definition.get("lit_at_night", false)):
+			draw_rect(Rect2(x + 18.0, y + 24.0, 22.0, 18.0), Color("ffd477", 0.75 * night_blend))
+		draw_string(ThemeDB.fallback_font, Vector2(x + 5.0, y + height + 15.0), String(definition.get("label", "Building")), HORIZONTAL_ALIGNMENT_LEFT, width, 11, Color("d8dde3"))

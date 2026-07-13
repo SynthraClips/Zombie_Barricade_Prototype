@@ -27,13 +27,14 @@ func update_rewards(delta: float) -> void:
 			reward.collect()
 
 func spawn_reward(reward_id: String, world_position: Vector2) -> void:
+	var resolved_reward_id := _resolve_spawn_reward_id(reward_id)
 	var collect_radius: float = float(GameManager.game_config.get("pickup_collect_radius", 72.0))
 	if world_position.distance_to(run_manager.squad_manager.get_anchor_position()) <= collect_radius:
-		collect_reward(reward_id)
+		collect_reward(resolved_reward_id)
 		return
 	var reward: Node = reward_scene.instantiate()
 	add_child(reward)
-	reward.initialize(run_manager, reward_id, world_position)
+	reward.initialize(run_manager, resolved_reward_id, world_position)
 	rewards.append(reward)
 
 func unregister_reward(reward: Node) -> void:
@@ -45,7 +46,7 @@ func collect_reward(reward_id: String) -> void:
 	print("Collected reward: %s" % last_collected_reward)
 
 func apply_reward_by_id(reward_id: String) -> Dictionary:
-	var reward_def: Dictionary = GameManager.reward_data.get("rewards", {}).get(reward_id, {})
+	var reward_def: Dictionary = get_reward_definition(reward_id)
 	var gate_compatible_type: String = String(reward_def.get("type", "coins"))
 	if gate_compatible_type == "add_soldier":
 		gate_compatible_type = "add_soldiers"
@@ -85,6 +86,16 @@ func apply_reward_effect(reward_type: String, reward_def: Dictionary) -> Diction
 			result["applied"] = coins_added
 			result["delta"] = coins_added
 			result["popup"] = "+%d COINS" % coins_added
+		"supplies":
+			var supplies_added: int = run_manager.add_supplies(int(value))
+			result["applied"] = supplies_added
+			result["delta"] = supplies_added
+			result["popup"] = "+%d SUPPLIES" % supplies_added
+		"survivors":
+			var survivors_added: int = run_manager.add_survivors(int(value))
+			result["applied"] = survivors_added
+			result["delta"] = survivors_added
+			result["popup"] = "+%d SURVIVORS" % survivors_added
 		"add_soldiers":
 			var added: int = run_manager.squad_manager.add_soldiers(
 				int(value),
@@ -142,13 +153,32 @@ func apply_reward_effect(reward_type: String, reward_def: Dictionary) -> Diction
 			result["applied"] = 1
 			result["popup"] = "BARRICADE READY"
 		"weapon_pickup":
-			var weapon_ids: Array = GameManager.weapon_data.keys()
-			var current: String = run_manager.weapon_manager.get_current_weapon_id()
-			weapon_ids.erase(current)
-			if not weapon_ids.is_empty():
-				run_manager.weapon_manager.apply_temporary_weapon(String(weapon_ids[randi() % weapon_ids.size()]), 10.0)
-				result["applied"] = run_manager.weapon_manager.get_current_weapon_id()
-				result["popup"] = "WEAPON CRATE"
+			var weapon_id: String = String(reward_def.get("weapon_id", ""))
+			if weapon_id == "":
+				weapon_id = run_manager.weapon_manager.choose_weighted_weapon(run_manager.distance_travelled / max(run_manager.target_distance, 1.0), [run_manager.weapon_manager.get_current_weapon_id()])
+			if bool(GameManager.weapon_data.get(weapon_id, {}).get("limited_ammo", false)):
+				run_manager.weapon_manager.refill_limited_ammo(run_manager.weapon_manager.get_max_ammo(weapon_id), weapon_id)
+			var equipped: bool = run_manager.weapon_manager.set_active_weapon(weapon_id)
+			result["applied"] = weapon_id if equipped else ""
+			result["popup"] = "%s EQUIPPED" % String(GameManager.weapon_data.get(weapon_id, {}).get("name", weapon_id)).to_upper()
+		"tesla_ammo":
+			var ammo_added: int = run_manager.weapon_manager.refill_limited_ammo(int(value), "tesla_cannon")
+			result["applied"] = ammo_added
+			result["delta"] = ammo_added
+			result["popup"] = "+%d TESLA AMMO" % ammo_added
+		"night_section":
+			var started: bool = run_manager.road.request_night_section()
+			result["applied"] = started
+			result["popup"] = "NIGHT ROUTE" if started else "NIGHT ALREADY ACTIVE"
+		"hero_cooldown":
+			run_manager.hero_cooldown_remaining = max(0.0, run_manager.hero_cooldown_remaining - float(value))
+			result["applied"] = value
+			result["popup"] = "HERO COOLDOWN -%ds" % int(value)
+		"hero_duration_gate":
+			if run_manager.hero_active:
+				run_manager.hero_time_remaining += float(value)
+			result["applied"] = value
+			result["popup"] = "HERO DURATION +%ds" % int(value)
 		"special_ammo":
 			var ammo_type: String = String(reward_def.get("ammo_type", ""))
 			var duration: float = float(reward_def.get("duration", -1.0))
@@ -168,18 +198,45 @@ func apply_reward_effect(reward_type: String, reward_def: Dictionary) -> Diction
 				"color": reward_def.get("color", "#ff7d7d")
 			}
 			var nested_result: Dictionary = apply_reward_effect(String(nested_reward.get("type", "add_soldiers")), nested_reward)
-			var spawn_count: int = int(reward_def.get("spawn_enemy_count", 2))
-			var spawn_pool: Array = reward_def.get("spawn_pool", ["runner", "exploder"])
-			for index in range(spawn_count):
-				var enemy_id: String = String(spawn_pool[index % max(1, spawn_pool.size())])
-				var spawn_x: float = run_manager.road.get_random_lane_x(run_manager.road.get_spawn_y(), 64.0)
-				run_manager.enemy_manager.spawn_enemy(enemy_id, Vector2(spawn_x, run_manager.road.get_spawn_y()), run_manager.get_difficulty_multiplier())
-			run_manager.ui_manager.show_status_message("RISK HORDE INCOMING", Color("ff6b6b"))
+			var boss_pool: Array = reward_def.get("boss_pool", [])
+			if not boss_pool.is_empty():
+				var boss_started: bool = run_manager.wave_spawner.try_spawn_event_boss(boss_pool, "GATE CHALLENGE")
+				if not boss_started:
+					run_manager.wave_spawner.trigger_alarm_wave({"alarm_spawn_count": 5, "alarm_spawn_pool": ["armoured_walker", "mutated_boar", "runner"]}, Vector2(run_manager.road.get_center_x(), run_manager.road.get_spawn_y()))
+				run_manager.ui_manager.show_status_message("OPTIONAL BOSS INCOMING" if boss_started else "ELITE FALLBACK HORDE", Color("ff6b6b"))
+			else:
+				var spawn_count: int = int(reward_def.get("spawn_enemy_count", 2))
+				var spawn_pool: Array = reward_def.get("spawn_pool", ["runner", "exploder"])
+				for index in range(spawn_count):
+					var enemy_id: String = String(spawn_pool[index % max(1, spawn_pool.size())])
+					var spawn_x: float = run_manager.road.get_random_lane_x(run_manager.road.get_spawn_y(), 64.0)
+					run_manager.enemy_manager.spawn_enemy(enemy_id, Vector2(spawn_x, run_manager.road.get_spawn_y()), run_manager.get_difficulty_multiplier())
+				run_manager.ui_manager.show_status_message("RISK HORDE INCOMING", Color("ff6b6b"))
 			result["applied"] = nested_result.get("applied", 0)
 			result["delta"] = nested_result.get("delta", 0)
-			result["popup"] = "%s / HORDE" % String(nested_result.get("popup", "RISK"))
+			result["popup"] = "%s / %s" % [String(nested_result.get("popup", "RISK")), "BOSS" if not boss_pool.is_empty() else "HORDE"]
 	AudioManager.play_sfx("reward_pickup")
 	if rarity_label in ["Rare", "Military", "Legendary"]:
 		result["popup"] = "%s | %s" % [rarity_label.to_upper(), String(result.get("popup", label))]
 	last_collected_reward = result.duplicate(true)
 	return result
+
+func get_reward_definition(reward_id: String) -> Dictionary:
+	if reward_id.begins_with("weapon::"):
+		var weapon_id := reward_id.trim_prefix("weapon::")
+		var weapon: Dictionary = GameManager.weapon_data.get(weapon_id, {})
+		return {
+			"type":"weapon_pickup", "weapon_id":weapon_id,
+			"value":1, "rarity":String(weapon.get("rarity", "common")),
+			"color":"#d9a8ff", "label":String(weapon.get("name", weapon_id)),
+			"icon":String(weapon.get("icon", ""))
+		}
+	return GameManager.reward_data.get("rewards", {}).get(reward_id, {})
+
+func _resolve_spawn_reward_id(reward_id: String) -> String:
+	if reward_id == "ammo_cache" and not UpgradeManager.has_tree_effect("tesla_unlock"):
+		return "supplies_small"
+	if reward_id != "weapon_pickup" and reward_id != "armoury_weapon_drop":
+		return reward_id
+	var weapon_id: String = run_manager.weapon_manager.choose_weighted_weapon(run_manager.distance_travelled / max(run_manager.target_distance, 1.0), [run_manager.weapon_manager.get_current_weapon_id()])
+	return "weapon::%s" % weapon_id

@@ -2,6 +2,7 @@ extends Node2D
 class_name RunManager
 
 signal coins_changed(value: int)
+signal resources_changed(supplies: int, survivors: int)
 signal distance_changed(value: float)
 signal wave_changed(value: int)
 signal squad_changed(value: int)
@@ -26,6 +27,8 @@ signal post_boss_choice_closed(state: Dictionary)
 @onready var ui_manager: CanvasLayer = $UI
 
 var coins := 0
+var supplies := 0
+var survivors := 0
 var distance_travelled := 0.0
 var elapsed_time := 0.0
 var current_wave := 1
@@ -69,6 +72,7 @@ var hero_cooldown_remaining := 0.0
 var hero_uses_remaining := 0
 var hero_ultimate_ready := false
 var hero_ultimate_used := false
+var hero_ultimate_uses_remaining := 0
 var rescued_specialists: Array[String] = []
 var active_run_modifier_id := ""
 var active_run_modifier_title := ""
@@ -129,6 +133,14 @@ var run_stats := {
 	"boss_kills": 0,
 	"obstacles_destroyed": 0,
 	"coins_earned": 0,
+	"supplies_earned": 0,
+	"survivors_earned": 0,
+	"mutated_animals_killed": 0,
+	"mutation_history": [],
+	"night_sections": 0,
+	"boss_ids_defeated": [],
+	"hero_uses": 0,
+	"hero_ultimates": 0,
 	"armoury_caches_destroyed": 0,
 	"survivor_rescues_completed": 0,
 	"survivors_rescued": 0,
@@ -153,7 +165,7 @@ func _ready() -> void:
 		return
 	target_distance = float(GameManager.game_config.get("target_distance", 300))
 	scroll_speed = float(GameManager.game_config.get("base_scroll_speed", 90.0))
-	max_squad_size = int(GameManager.game_config.get("max_squad_size", 8))
+	max_squad_size = int(GameManager.game_config.get("max_squad_size", 8)) + int(round(UpgradeManager.get_tree_effect_total("max_squad_size")))
 	pressure_config = GameManager.game_config.get("horde_pressure", {}).duplicate(true)
 	current_run_summary = {}
 	run_end_locked = false
@@ -179,6 +191,7 @@ func _ready() -> void:
 	SaveManager.save_data["stats"]["total_runs_started"] = int(SaveManager.save_data.get("stats", {}).get("total_runs_started", 0)) + 1
 	SaveManager.save_game()
 	coins_changed.emit(coins)
+	resources_changed.emit(supplies, survivors)
 	distance_changed.emit(distance_travelled)
 	wave_changed.emit(current_wave)
 	squad_changed.emit(squad_manager.get_soldier_count())
@@ -349,6 +362,24 @@ func add_coins(amount: int) -> int:
 	coins_changed.emit(coins)
 	return final_amount
 
+func add_supplies(amount: int) -> int:
+	var base_amount: int = maxi(amount, 0)
+	var multiplier := 1.0 + UpgradeManager.get_tree_effect_total("supplies_retention")
+	var added := int(ceil(float(base_amount) * multiplier)) if base_amount > 0 else 0
+	supplies += added
+	run_stats["supplies_earned"] = int(run_stats.get("supplies_earned", 0)) + added
+	resources_changed.emit(supplies, survivors)
+	return added
+
+func add_survivors(amount: int) -> int:
+	var base_amount: int = maxi(amount, 0)
+	var multiplier := 1.0 + UpgradeManager.get_tree_effect_total("survivor_value")
+	var added := int(ceil(float(base_amount) * multiplier)) if base_amount > 0 else 0
+	survivors += added
+	run_stats["survivors_earned"] = int(run_stats.get("survivors_earned", 0)) + added
+	resources_changed.emit(supplies, survivors)
+	return added
+
 func spend_run_coins(amount: int) -> bool:
 	if coins < amount:
 		return false
@@ -365,13 +396,25 @@ func register_kill(enemy_id: String) -> void:
 	_advance_active_mini_objective("kill_count", 1)
 	SaveManager.save_data["stats"]["lifetime_kills"] += 1
 	MissionManager.increment_progress("kills", 1)
-	if enemy_id == "boss":
+	var enemy_definition: Dictionary = GameManager.enemy_data.get(enemy_id, {})
+	if String(enemy_definition.get("category", "zombie")) == "animal":
+		run_stats["mutated_animals_killed"] = int(run_stats.get("mutated_animals_killed", 0)) + 1
+		SaveManager.save_data["stats"]["total_mutated_animals_killed"] = int(SaveManager.save_data.get("stats", {}).get("total_mutated_animals_killed", 0)) + 1
+	if String(enemy_definition.get("category", "")) == "boss" or enemy_id == "boss":
 		run_stats["boss_kills"] += 1
 		run_stats["bosses_defeated"] += 1
 		SaveManager.save_data["stats"]["boss_kills"] += 1
 		MissionManager.increment_progress("boss_kills", 1)
 		reduce_horde_pressure_for("boss_defeated")
 		on_boss_defeated()
+		var boss_ids: Array = run_stats.get("boss_ids_defeated", [])
+		if not boss_ids.has(enemy_id):
+			boss_ids.append(enemy_id)
+		run_stats["boss_ids_defeated"] = boss_ids
+		var permanent_boss_ids: Array = SaveManager.save_data.get("defeated_boss_ids", [])
+		if not permanent_boss_ids.has(enemy_id):
+			permanent_boss_ids.append(enemy_id)
+		SaveManager.save_data["defeated_boss_ids"] = permanent_boss_ids
 
 func register_obstacle_destroyed() -> void:
 	run_stats["obstacles_destroyed"] += 1
@@ -391,6 +434,7 @@ func register_survivor_rescue(soldiers_added: int) -> void:
 	run_stats["survivors_rescued"] += max(soldiers_added, 0)
 	_advance_active_mini_objective("rescue_count", 1)
 	reduce_horde_pressure_for("survivor_rescue_completed")
+	add_survivors(max(1, soldiers_added))
 
 func register_pickup_collected(_reward_id: String = "") -> void:
 	run_stats["pickups_collected"] += 1
@@ -568,7 +612,8 @@ func get_hero_state() -> Dictionary:
 		"time_remaining": hero_time_remaining,
 		"cooldown_remaining": hero_cooldown_remaining,
 		"uses_remaining": hero_uses_remaining,
-		"ultimate_ready": hero_ultimate_ready and not hero_ultimate_used
+		"ultimate_ready": hero_ultimate_ready and hero_ultimate_uses_remaining > 0,
+		"ultimate_uses_remaining": hero_ultimate_uses_remaining
 	}
 
 func get_specialist_state() -> Dictionary:
@@ -742,6 +787,14 @@ func finish_run(victory: bool) -> void:
 		"victory": victory,
 		"distance": int(distance_travelled),
 		"coins_earned": max(int(run_stats["coins_earned"]), int(coins)),
+		"supplies_earned": int(run_stats.get("supplies_earned", supplies)),
+		"survivors_earned": int(run_stats.get("survivors_earned", survivors)),
+		"mutated_animals_killed": int(run_stats.get("mutated_animals_killed", 0)),
+		"mutation_history": run_stats.get("mutation_history", []).duplicate(),
+		"night_sections": int(run_stats.get("night_sections", 0)),
+		"boss_ids_defeated": run_stats.get("boss_ids_defeated", []).duplicate(),
+		"hero_uses": int(run_stats.get("hero_uses", 0)),
+		"hero_ultimates": int(run_stats.get("hero_ultimates", 0)),
 		"kills": run_stats["kills"],
 		"boss_kills": run_stats["boss_kills"],
 		"bosses_defeated": run_stats["bosses_defeated"],
@@ -816,6 +869,8 @@ func _apply_run_modifier(modifier_id: String, modifier_def: Dictionary) -> void:
 func _setup_selected_hero() -> void:
 	selected_hero_id = String(GameManager.current_run_context.get("hero_id", SaveManager.save_data.get("selected_hero", "")))
 	selected_hero_def = GameManager.get_hero_def(selected_hero_id)
+	if String(selected_hero_def.get("requires_upgrade", "")) != "" and not UpgradeManager.has_tree_effect(String(selected_hero_def.get("requires_upgrade", ""))):
+		selected_hero_def = {}
 	hero_active = false
 	hero_time_remaining = 0.0
 	hero_cooldown_remaining = 0.0
@@ -824,9 +879,11 @@ func _setup_selected_hero() -> void:
 		selected_hero_id = ""
 		hero_uses_remaining = 0
 		hero_ultimate_ready = false
+		hero_ultimate_uses_remaining = 0
 		return
 	hero_uses_remaining = int(selected_hero_def.get("uses_per_run", 1))
 	hero_ultimate_ready = bool(selected_hero_def.get("ultimate_enabled", true))
+	hero_ultimate_uses_remaining = (1 if hero_ultimate_ready else 0) + int(round(UpgradeManager.get_tree_effect_total("hero_ultimate_uses")))
 	active_mini_objective = {}
 	mini_objective_label = ""
 	next_mini_objective_distance = 45.0
@@ -869,6 +926,7 @@ func call_selected_hero() -> bool:
 	hero_cooldown_remaining = max(1.0, float(selected_hero_def.get("cooldown", 18.0)) - UpgradeManager.get_upgrade_value("hero_cooldown"))
 	hero_ultimate_used = false
 	run_stats["hero_used"] = selected_hero_id
+	run_stats["hero_uses"] = int(run_stats.get("hero_uses", 0)) + 1
 	var hero_effect: String = String(selected_hero_def.get("call_in_effect", ""))
 	match hero_effect:
 		"fire_rate_boost":
@@ -877,13 +935,23 @@ func call_selected_hero() -> bool:
 			barricade_manager.repair_active_barricade(float(selected_hero_def.get("power", 40.0)) + UpgradeManager.get_upgrade_value("hero_power") * 20.0)
 		"damage_boost":
 			squad_manager.apply_reward_boost("damage_boost", float(selected_hero_def.get("power", 0.3)) + UpgradeManager.get_upgrade_value("hero_power"))
+		"squad_heal":
+			squad_manager.heal_soldiers(int(selected_hero_def.get("power", 2)))
+		"sniper_shot":
+			var targets: Array = enemy_manager.get_enemies_sorted_from(squad_manager.get_anchor_position(), 720.0)
+			if not targets.is_empty():
+				targets[0].take_damage(float(selected_hero_def.get("power", 48.0)), false)
+		"tesla_ammo":
+			weapon_manager.refill_limited_ammo(int(selected_hero_def.get("power", 5)), "tesla_cannon")
 	ui_manager.show_status_message("%s DEPLOYED" % String(selected_hero_def.get("name", "HERO")).to_upper(), Color("9ee3ff"))
 	return true
 
 func trigger_hero_ultimate() -> bool:
-	if selected_hero_def.is_empty() or not hero_active or hero_ultimate_used or not hero_ultimate_ready:
+	if selected_hero_def.is_empty() or not hero_active or hero_ultimate_uses_remaining <= 0 or not hero_ultimate_ready:
 		return false
-	hero_ultimate_used = true
+	hero_ultimate_uses_remaining -= 1
+	hero_ultimate_used = hero_ultimate_uses_remaining <= 0
+	run_stats["hero_ultimates"] = int(run_stats.get("hero_ultimates", 0)) + 1
 	var ultimate_effect: String = String(selected_hero_def.get("ultimate_effect", ""))
 	match ultimate_effect:
 		"squad_overdrive":
@@ -901,6 +969,21 @@ func trigger_hero_ultimate() -> bool:
 				enemy_manager.damage_enemies_in_radius(target.global_position, 48.0, blast_damage)
 				ui_manager.spawn_explosion(target.global_position, 48.0)
 			AudioManager.play_sfx("explosion")
+		"revive_pulse":
+			squad_manager.add_soldiers(int(selected_hero_def.get("ultimate_power", 4)), true, max_squad_size)
+			squad_manager.heal_soldiers(int(selected_hero_def.get("ultimate_power", 4)))
+		"suppressive_fire":
+			squad_manager.apply_reward_boost("fire_rate_boost", float(selected_hero_def.get("ultimate_power", 0.7)))
+			squad_manager.apply_reward_boost("damage_boost", float(selected_hero_def.get("ultimate_power", 0.7)) * 0.5)
+		"sniper_sweep":
+			for target in enemy_manager.get_enemies_sorted_from(squad_manager.get_anchor_position(), 760.0).slice(0, 5):
+				if is_instance_valid(target):
+					target.take_damage(float(selected_hero_def.get("ultimate_power", 62.0)), false)
+		"tesla_storm":
+			weapon_manager.refill_limited_ammo(int(selected_hero_def.get("ultimate_power", 12)), "tesla_cannon")
+			for target in enemy_manager.get_enemies_sorted_from(squad_manager.get_anchor_position(), 480.0).slice(0, 6):
+				if is_instance_valid(target):
+					target.take_damage(18.0, false)
 	ui_manager.show_status_message("%s ULTIMATE" % String(selected_hero_def.get("name", "HERO")).to_upper(), Color("ffd166"))
 	return true
 

@@ -11,18 +11,27 @@ var active_time_remaining := 0.0
 var next_trigger_distance := INF
 var next_trigger_time := INF
 var last_mutation_id := ""
+var evolution_settings: Dictionary = {}
+var evolution_definitions: Dictionary = {}
+var active_evolution_ids: Array[String] = []
+var next_evolution_distance := INF
 
 func setup(run: Node) -> void:
 	run_manager = run
 	mutation_settings = GameManager.mutation_data.get("settings", {}).duplicate(true)
 	mutation_definitions = GameManager.mutation_data.get("mutations", {}).duplicate(true)
 	mutation_schedule = GameManager.mutation_data.get("schedule", []).duplicate(true)
+	evolution_settings = GameManager.mutation_data.get("evolution_settings", {}).duplicate(true)
+	evolution_definitions = GameManager.mutation_data.get("evolution_nodes", {}).duplicate(true)
+	active_evolution_ids.clear()
 	clear_state("setup", false)
 	var first_schedule: Dictionary = _get_schedule_for_current_progress()
 	next_trigger_distance = _get_schedule_value(first_schedule, "start_distance", float(mutation_settings.get("start_distance", INF)))
 	next_trigger_time = _get_schedule_value(first_schedule, "time_interval", float(mutation_settings.get("time_interval", INF)))
+	next_evolution_distance = float(evolution_settings.get("start_distance", 150.0))
 
 func update_mutations(delta: float) -> void:
+	_try_activate_evolution()
 	if not is_mutation_active():
 		_try_start_scheduled_mutation()
 		return
@@ -43,35 +52,51 @@ func can_start_mutation_for_schedule(schedule_override: Dictionary = {}) -> bool
 	return not _get_allowed_mutation_ids(schedule_row).is_empty()
 
 func get_active_mutation_state() -> Dictionary:
+	var revealed := UpgradeManager.has_tree_effect("mutation_reveal")
+	var evolution_labels: Array[String] = []
+	for evolution_id in active_evolution_ids:
+		var definition: Dictionary = evolution_definitions.get(evolution_id, {})
+		evolution_labels.append(String(definition.get("label", evolution_id)) if revealed else String(definition.get("family", "Unknown")).capitalize())
 	return {
 		"id": active_mutation_id,
 		"label": String(active_mutation.get("label", "")),
-		"description": String(active_mutation.get("description", "")),
+		"description": String(active_mutation.get("description", "")) if revealed else "Research upgrades reveal full mutation effects.",
 		"time_remaining": active_time_remaining,
 		"warning_text": String(active_mutation.get("warning_text", "")),
-		"reward_multiplier": get_reward_multiplier()
+		"reward_multiplier": get_reward_multiplier(),
+		"evolutions": active_evolution_ids.duplicate(),
+		"evolution_labels": evolution_labels,
+		"evolution_count": active_evolution_ids.size()
 	}
 
 func is_mutation_active() -> bool:
 	return active_mutation_id != ""
 
 func get_spawn_weight_multiplier(enemy_id: String) -> float:
-	if not is_mutation_active():
-		return 1.0
-	return max(0.01, float(active_mutation.get("spawn_weight_modifiers", {}).get(enemy_id, 1.0)))
+	var multiplier := float(active_mutation.get("spawn_weight_modifiers", {}).get(enemy_id, 1.0)) if is_mutation_active() else 1.0
+	for evolution_id in active_evolution_ids:
+		multiplier *= float(evolution_definitions.get(evolution_id, {}).get("spawn_weight_modifiers", {}).get(enemy_id, 1.0))
+	return max(0.01, multiplier)
 
 func get_enemy_stat_modifiers(enemy_id: String) -> Dictionary:
-	if not is_mutation_active():
-		return {}
-	var affected_ids: Array = active_mutation.get("affected_enemy_ids", [])
-	if not affected_ids.is_empty() and not affected_ids.has(enemy_id):
-		return {}
-	return active_mutation.get("enemy_stat_modifiers", {}).duplicate(true)
+	var combined: Dictionary = {}
+	if is_mutation_active():
+		var affected_ids: Array = active_mutation.get("affected_enemy_ids", [])
+		if affected_ids.is_empty() or affected_ids.has(enemy_id):
+			_merge_stat_modifiers(combined, active_mutation.get("enemy_stat_modifiers", {}))
+	for evolution_id in active_evolution_ids:
+		var definition: Dictionary = evolution_definitions.get(evolution_id, {})
+		var categories: Array = definition.get("affected_categories", [])
+		var enemy_category := String(GameManager.enemy_data.get(enemy_id, {}).get("category", "zombie"))
+		if categories.is_empty() or categories.has(enemy_category):
+			_merge_stat_modifiers(combined, definition.get("enemy_stat_modifiers", {}))
+	return combined
 
 func get_reward_multiplier() -> float:
-	if not is_mutation_active():
-		return 1.0
-	return max(1.0, float(active_mutation.get("reward_multiplier", 1.0)))
+	var multiplier := float(active_mutation.get("reward_multiplier", 1.0)) if is_mutation_active() else 1.0
+	for evolution_id in active_evolution_ids:
+		multiplier *= float(evolution_definitions.get(evolution_id, {}).get("reward_multiplier", 1.0))
+	return clampf(multiplier, 1.0, 1.35)
 
 func select_mutation_from_allowed(allowed_mutations: Array) -> Dictionary:
 	var valid_ids: Array[String] = []
@@ -116,6 +141,8 @@ func end_active_mutation(show_message: bool = true) -> void:
 	run_manager.notify_mutation_state_changed()
 
 func clear_state(reason: String = "reset", show_message: bool = false) -> void:
+	if reason in ["setup", "reset", "run_end"]:
+		active_evolution_ids.clear()
 	if not is_mutation_active():
 		active_mutation_id = ""
 		active_mutation = {}
@@ -168,3 +195,64 @@ func _apply_active_mutation_to_existing_enemies() -> void:
 	if run_manager == null or run_manager.enemy_manager == null:
 		return
 	run_manager.enemy_manager.refresh_enemy_mutation_modifiers()
+
+func _try_activate_evolution() -> void:
+	if not bool(evolution_settings.get("enabled", true)) or run_manager.distance_travelled < next_evolution_distance:
+		return
+	if active_evolution_ids.size() >= int(evolution_settings.get("max_active", 5)):
+		next_evolution_distance = INF
+		return
+	var candidates: Array[String] = []
+	var total_weight := 0.0
+	var progress: float = run_manager.distance_travelled / max(run_manager.target_distance, 1.0)
+	for evolution_id_variant in evolution_definitions.keys():
+		var evolution_id := String(evolution_id_variant)
+		var definition: Dictionary = evolution_definitions[evolution_id]
+		if active_evolution_ids.has(evolution_id) or progress < float(definition.get("min_progress", 0.0)):
+			continue
+		var prerequisites: Array = definition.get("prerequisite_ids", [])
+		var prerequisites_met := true
+		for prerequisite in prerequisites:
+			if not active_evolution_ids.has(String(prerequisite)):
+				prerequisites_met = false
+		if not prerequisites_met:
+			continue
+		var conflicts: Array = definition.get("incompatible_ids", [])
+		var conflicted := false
+		for active_id in active_evolution_ids:
+			if conflicts.has(active_id):
+				conflicted = true
+		if conflicted:
+			continue
+		candidates.append(evolution_id)
+		total_weight += max(0.01, float(definition.get("weight", 1.0)))
+	if candidates.is_empty():
+		next_evolution_distance += float(evolution_settings.get("distance_interval", 150.0))
+		return
+	var roll := randf() * total_weight
+	var selected_id: String = String(candidates.back())
+	for candidate in candidates:
+		roll -= max(0.01, float(evolution_definitions[candidate].get("weight", 1.0)))
+		if roll <= 0.0:
+			selected_id = candidate
+			break
+	active_evolution_ids.append(selected_id)
+	var discovered: Array = SaveManager.save_data.get("discovered_mutations", [])
+	if not discovered.has(selected_id):
+		discovered.append(selected_id)
+	SaveManager.save_data["discovered_mutations"] = discovered
+	var history: Array = run_manager.run_stats.get("mutation_history", [])
+	history.append(selected_id)
+	run_manager.run_stats["mutation_history"] = history
+	var selected: Dictionary = evolution_definitions[selected_id]
+	run_manager.ui_manager.show_status_message("EVOLUTION: %s" % String(selected.get("label", selected_id)).to_upper(), Color("ff9a70"))
+	_apply_active_mutation_to_existing_enemies()
+	run_manager.notify_mutation_state_changed()
+	next_evolution_distance = run_manager.distance_travelled + float(evolution_settings.get("distance_interval", 150.0)) * randf_range(0.85, 1.15)
+
+func _merge_stat_modifiers(target: Dictionary, source: Dictionary) -> void:
+	for key in source.keys():
+		if String(key).ends_with("_multiplier"):
+			target[key] = float(target.get(key, 1.0)) * float(source[key])
+		else:
+			target[key] = source[key]

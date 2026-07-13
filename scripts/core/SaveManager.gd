@@ -3,8 +3,9 @@ extends Node
 const LEGACY_SAVE_PATH := "user://save_data.json"
 const SAVE_PATH := "user://profile_1.json" # Legacy test/tool compatibility; runtime uses the active slot path.
 const PROFILE_INDEX_PATH := "user://profiles.json"
-const SAVE_VERSION := 5
+const SAVE_VERSION := 6
 const PROFILE_COUNT := 3
+const PROFILE_NAME_MAX_LENGTH := 24
 
 var save_data: Dictionary = _default_save_data()
 var profile_index: Dictionary = {"version": 1, "active_slot": -1, "legacy_migrated": false, "profiles": {}}
@@ -82,7 +83,7 @@ func ensure_active_profile() -> bool:
 	for slot in PROFILE_COUNT:
 		if profile_exists(slot):
 			return select_profile(slot)
-	return create_profile(0, "Player 1")
+	return create_profile(0, "Profile 1")
 
 func get_profile_summary(slot: int) -> Dictionary:
 	return profile_index.get("profiles", {}).get(str(slot), {"exists": false, "name": ""})
@@ -93,13 +94,35 @@ func profile_exists(slot: int) -> bool:
 func create_profile(slot: int, profile_name: String) -> bool:
 	if slot < 0 or slot >= PROFILE_COUNT or profile_exists(slot):
 		return false
+	var validated_name := validate_profile_name(profile_name, slot)
 	active_profile_slot = slot
 	save_data = _default_save_data()
-	save_data["profile_name"] = profile_name.strip_edges()
+	save_data["profile_name"] = validated_name
 	profile_index["profiles"][str(slot)] = {"exists": true, "name": save_data["profile_name"]}
 	profile_index["active_slot"] = slot
 	_save_profile_index()
 	return save_game()
+
+func rename_profile(slot: int, profile_name: String) -> bool:
+	if not profile_exists(slot):
+		return false
+	var validated_name := validate_profile_name(profile_name, slot)
+	var previous_slot := active_profile_slot
+	if previous_slot != slot and not select_profile(slot):
+		return false
+	save_data["profile_name"] = validated_name
+	profile_index["profiles"][str(slot)] = {"exists": true, "name": validated_name}
+	var saved := save_game() and _save_profile_index()
+	if previous_slot >= 0 and previous_slot != slot:
+		select_profile(previous_slot)
+	return saved
+
+func validate_profile_name(profile_name: String, slot: int = 0) -> String:
+	var cleaned := profile_name.replace("\r", " ").replace("\n", " ").replace("\t", " ")
+	var normalized := " ".join(cleaned.strip_edges().split(" ", false))
+	if normalized.is_empty():
+		normalized = "Profile %d" % (clampi(slot, 0, PROFILE_COUNT - 1) + 1)
+	return normalized.left(PROFILE_NAME_MAX_LENGTH)
 
 func select_profile(slot: int) -> bool:
 	if not profile_exists(slot):
@@ -168,9 +191,9 @@ func _migrate_legacy_save_once() -> void:
 		backup.store_string(raw)
 	var migrated: Dictionary = _deep_merge(_default_save_data(), parsed)
 	migrated["save_version"] = SAVE_VERSION
-	var profile_name := String(parsed.get("profile_name", "Player 1")).strip_edges()
+	var profile_name := String(parsed.get("profile_name", "Profile 1")).strip_edges()
 	if profile_name.is_empty():
-		profile_name = "Player 1"
+		profile_name = "Profile 1"
 	migrated["profile_name"] = profile_name
 	var destination := FileAccess.open(_profile_path(0), FileAccess.WRITE)
 	if destination == null:
@@ -186,6 +209,27 @@ func add_banked_coins(value: int) -> void:
 	save_data["banked_coins"] = max(0, int(save_data.get("banked_coins", 0)) + max(value, 0))
 	save_game()
 
+func add_progression_resources(coins: int = 0, supplies: int = 0, survivors: int = 0) -> void:
+	save_data["banked_coins"] = max(0, int(save_data.get("banked_coins", 0)) + max(coins, 0))
+	save_data["supplies"] = max(0, int(save_data.get("supplies", 0)) + max(supplies, 0))
+	save_data["survivors"] = max(0, int(save_data.get("survivors", 0)) + max(survivors, 0))
+	save_game()
+
+func can_afford_resources(costs: Dictionary) -> bool:
+	return (
+		int(save_data.get("banked_coins", 0)) >= max(0, int(costs.get("coins", 0)))
+		and int(save_data.get("supplies", 0)) >= max(0, int(costs.get("supplies", 0)))
+		and int(save_data.get("survivors", 0)) >= max(0, int(costs.get("survivors", 0)))
+	)
+
+func spend_resources(costs: Dictionary, save_immediately: bool = true) -> bool:
+	if not can_afford_resources(costs):
+		return false
+	save_data["banked_coins"] = int(save_data.get("banked_coins", 0)) - max(0, int(costs.get("coins", 0)))
+	save_data["supplies"] = int(save_data.get("supplies", 0)) - max(0, int(costs.get("supplies", 0)))
+	save_data["survivors"] = int(save_data.get("survivors", 0)) - max(0, int(costs.get("survivors", 0)))
+	return not save_immediately or save_game()
+
 func spend_banked_coins(value: int) -> bool:
 	if value < 0 or int(save_data.get("banked_coins", 0)) < value:
 		return false
@@ -198,6 +242,8 @@ func _default_save_data() -> Dictionary:
 		"save_version": SAVE_VERSION,
 		"profile_name": "",
 		"banked_coins": 0,
+		"supplies": 0,
+		"survivors": 0,
 		"upgrades": {},
 		"upgrade_choices": {},
 		"permanent_upgrade_ids": [],
@@ -223,6 +269,10 @@ func _default_save_data() -> Dictionary:
 			"unlocked": []
 		},
 		"boss_rewards_claimed": [],
+		"defeated_boss_ids": [],
+		"discovered_mutations": [],
+		"mutation_research": {},
+		"weapon_inventory": ["rifle"],
 		"daily_challenge": {
 			"last_seed": "",
 			"completed_seed": "",
@@ -244,7 +294,13 @@ func _default_save_data() -> Dictionary:
 			"runs_completed": 0,
 			"highest_coins_in_run": 0,
 			"total_zombies_killed": 0,
+			"total_mutated_animals_killed": 0,
 			"total_bosses_defeated": 0,
+			"total_supplies_collected": 0,
+			"total_survivors_rescued": 0,
+			"total_night_sections": 0,
+			"total_hero_uses": 0,
+			"total_hero_ultimates": 0,
 			"total_soldiers_rescued": 0,
 			"total_pickups_collected": 0,
 			"total_gates_chosen": 0,

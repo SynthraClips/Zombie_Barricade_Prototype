@@ -49,18 +49,20 @@ func _restore_save() -> void:
 	SaveManager.save_game()
 
 func _record_result(name: String, ok: bool, detail: String = "") -> void:
+	var line: String = "%s%s" % [name, " %s" % detail if detail != "" else ""]
 	if ok:
 		passed += 1
-		report_lines.append("[PASS] %s %s" % [name, detail])
+		report_lines.append("[PASS] %s" % line)
 	else:
 		failed += 1
-		report_lines.append("[FAIL] %s %s" % [name, detail])
+		report_lines.append("[FAIL] %s" % line)
 
 func _validate_all() -> void:
 	report_lines = ["Zombie Barricade Prototype Validation", ""]
 	_validate_required_files()
 	_validate_data_files()
 	_validate_data_integrity()
+	_validate_expansion_data()
 	await _validate_scene_loading()
 	await _validate_player_controls()
 	await _validate_core_run()
@@ -119,7 +121,8 @@ func _validate_required_files() -> void:
 		"res://data/gates.json",
 		"res://data/missions.json",
 		"res://data/upgrades.json",
-		"res://data/game_config.json"
+		"res://data/game_config.json",
+		"res://data/environments.json"
 	]
 	var all_present: bool = true
 	for path in required:
@@ -139,6 +142,83 @@ func _validate_data_files() -> void:
 	_record_result("Gate data loads", not GameManager.gate_data.get("rows", []).is_empty() or not GameManager.gate_data.get("start_values", []).is_empty())
 	_record_result("Mission data loads", not GameManager.mission_data.get("missions", []).is_empty())
 	_record_result("Upgrade data loads", not GameManager.upgrade_data.get("upgrades", {}).is_empty())
+	_record_result("Environment data loads", not GameManager.environment_data.get("buildings", {}).is_empty())
+
+func _validate_expansion_data() -> void:
+	var animal_ids: Array[String] = ["mutated_dog", "mutated_boar", "rat_swarm", "carrion_bird", "mutated_bear"]
+	var boss_ids: Array[String] = ["boss", "screamer_matriarch", "plague_spitter", "horde_commander", "night_stalker", "alpha_beast"]
+	var enemy_placeholders_valid := true
+	for enemy_id in animal_ids + boss_ids:
+		var enemy_definition: Dictionary = GameManager.enemy_data.get(enemy_id, {})
+		var placeholder_path := String(enemy_definition.get("placeholder", ""))
+		enemy_placeholders_valid = enemy_placeholders_valid and not enemy_definition.is_empty() and placeholder_path != "" and ResourceLoader.exists(placeholder_path)
+	_record_result("Mutated animal definitions and placeholders are configured", animal_ids.all(func(enemy_id): return String(GameManager.enemy_data.get(enemy_id, {}).get("category", "")) == "animal") and enemy_placeholders_valid)
+	_record_result("Route boss roster and unique behaviours are configured", boss_ids.all(func(enemy_id): return String(GameManager.enemy_data.get(enemy_id, {}).get("category", "")) == "boss" and String(GameManager.enemy_data.get(enemy_id, {}).get("special_behavior", "")) != ""))
+
+	var required_weapons: Array[String] = ["rifle", "smg", "shotgun", "minigun", "sniper_rifle", "burst_rifle", "grenade_launcher", "flamethrower", "piercing_rifle", "acid_sprayer", "freeze_rifle", "rocket_launcher", "tesla_cannon"]
+	var weapon_assets_valid := true
+	var collectible_count := 0
+	for weapon_id in required_weapons:
+		var weapon_definition: Dictionary = GameManager.weapon_data.get(weapon_id, {})
+		weapon_assets_valid = weapon_assets_valid and ResourceLoader.exists(String(weapon_definition.get("icon", "")))
+		if bool(weapon_definition.get("collectible", false)):
+			collectible_count += 1
+	_record_result("Expanded weapon roster has replaceable icons", required_weapons.all(func(weapon_id): return GameManager.weapon_data.has(weapon_id)) and weapon_assets_valid and collectible_count >= 10)
+	var tesla_definition: Dictionary = GameManager.weapon_data.get("tesla_cannon", {})
+	_record_result("Tesla is upgrade-only with bounded limited ammunition", bool(tesla_definition.get("upgrade_only", false)) and not bool(tesla_definition.get("collectible", true)) and bool(tesla_definition.get("limited_ammo", false)) and int(tesla_definition.get("max_ammo", 0)) > 0 and float(tesla_definition.get("max_effective_range", 9999.0)) <= 700.0)
+
+	var evolution_nodes: Dictionary = GameManager.mutation_data.get("evolution_nodes", {})
+	var evolution_families: Array[String] = []
+	var evolution_links_valid := true
+	for evolution_id in evolution_nodes:
+		var evolution_definition: Dictionary = evolution_nodes[evolution_id]
+		var family := String(evolution_definition.get("family", ""))
+		if not evolution_families.has(family):
+			evolution_families.append(family)
+		for prerequisite in evolution_definition.get("prerequisite_ids", []):
+			evolution_links_valid = evolution_links_valid and evolution_nodes.has(String(prerequisite))
+	_record_result("Zombie Evolution Tree covers five data-driven families", ["physical", "movement", "offensive", "resistance", "pack"].all(func(family): return evolution_families.has(family)) and evolution_nodes.size() >= 10 and evolution_links_valid)
+
+	var building_definitions: Dictionary = GameManager.environment_data.get("buildings", {}).get("definitions", {})
+	var building_assets_valid := building_definitions.size() >= 8
+	for building_definition in building_definitions.values():
+		building_assets_valid = building_assets_valid and ResourceLoader.exists(String(building_definition.get("placeholder", ""))) and String(building_definition.get("event_bias", "")) != ""
+		for boss_id in building_definition.get("boss_pool", []):
+			building_assets_valid = building_assets_valid and String(GameManager.enemy_data.get(String(boss_id), {}).get("category", "")) == "boss"
+	_record_result("Roadside buildings are modular event anchors", building_assets_valid)
+	var night_definition: Dictionary = GameManager.environment_data.get("night", {})
+	_record_result("Night sections have transition, lighting, spacing, duration, and spawn weighting", bool(night_definition.get("enabled", false)) and ResourceLoader.exists(String(night_definition.get("lamp_placeholder", ""))) and float(night_definition.get("transition_seconds", 0.0)) > 0.0 and float(night_definition.get("minimum_day_gap", 0.0)) > 0.0 and float(night_definition.get("section_duration_distance", 0.0)) > 0.0 and not night_definition.get("enemy_weight_multipliers", {}).is_empty())
+	var hero_definitions: Dictionary = GameManager.game_config.get("heroes", {})
+	var new_hero_ids: Array[String] = ["dr_imani", "rook", "nyx", "arc"]
+	var hero_assets_valid := true
+	for hero_id in new_hero_ids:
+		var hero_definition: Dictionary = hero_definitions.get(hero_id, {})
+		hero_assets_valid = hero_assets_valid and bool(hero_definition.get("ultimate_enabled", false)) and String(hero_definition.get("ultimate_effect", "")) != "" and ResourceLoader.exists(String(hero_definition.get("placeholder", "")))
+	_record_result("Expanded heroes have shared data, ultimates, and visible placeholders", new_hero_ids.all(func(hero_id): return hero_definitions.has(hero_id)) and hero_assets_valid)
+
+	var gate_types: Array[String] = []
+	var gate_boss_refs_valid := true
+	for row in GameManager.gate_data.get("rows", []):
+		for gate_definition in row.get("gates", []):
+			var gate_type := String(gate_definition.get("type", ""))
+			if not gate_types.has(gate_type):
+				gate_types.append(gate_type)
+			for boss_id in gate_definition.get("boss_pool", []):
+				gate_boss_refs_valid = gate_boss_refs_valid and String(GameManager.enemy_data.get(String(boss_id), {}).get("category", "")) == "boss"
+	_record_result("Expanded data-driven gate categories are available", ["supplies", "survivors", "weapon_pickup", "hero_cooldown", "night_section", "risk_gate"].all(func(gate_type): return gate_types.has(gate_type)) and gate_boss_refs_valid)
+	_record_result("Positive gate growth and weapon rerolls are capped", float(GameManager.gate_data.get("positive_scaling", {}).get("run_growth", 1.0)) <= 0.3 and int(GameManager.gate_data.get("positive_scaling", {}).get("soldier_value_cap", 99)) <= 4 and int(GameManager.gate_data.get("weapon_gate", {}).get("max_changes", 0)) > 0)
+
+	var total_tree_costs := {"coins": 0, "supplies": 0, "survivors": 0}
+	var mixed_cost_nodes := 0
+	for node in UpgradeManager.tree_defs.get("nodes", []):
+		var costs: Dictionary = node.get("costs", {})
+		for resource_id in total_tree_costs:
+			total_tree_costs[resource_id] = int(total_tree_costs[resource_id]) + int(costs.get(resource_id, 0))
+		if costs.keys().filter(func(resource_id): return int(costs.get(resource_id, 0)) > 0).size() > 1:
+			mixed_cost_nodes += 1
+	_record_result("Permanent progression is substantially slower and uses mixed resources", int(total_tree_costs["coins"]) >= 6000 and int(total_tree_costs["supplies"]) >= 1000 and int(total_tree_costs["survivors"]) >= 50 and mixed_cost_nodes >= 8)
+	var save_defaults: Dictionary = SaveManager._default_save_data()
+	_record_result("Save migration defaults cover new progression and report fields", save_defaults.has("supplies") and save_defaults.has("survivors") and save_defaults.has("defeated_boss_ids") and save_defaults.has("discovered_mutations") and save_defaults.has("weapon_inventory"))
 
 func _validate_data_integrity() -> void:
 	var waves_valid := true
@@ -571,7 +651,8 @@ func _validate_gate_system() -> void:
 	var shoot_gate: Node = shoot_field.gate_manager.spawn_gate(-8)
 	shoot_gate.global_position = shoot_field.squad_manager.get_anchor_position() - Vector2(0, 180.0)
 	var initial_value: int = int(shoot_gate.current_value)
-	shoot_gate.take_damage(29.0, false)
+	var first_step_damage: float = shoot_field.gate_manager.get_damage_per_value_step(shoot_gate.get_effect_definition())
+	shoot_gate.take_damage(first_step_damage - 1.0, false)
 	_record_result("Gate value does not increase from tiny damage if below threshold", int(shoot_gate.current_value) == initial_value)
 	shoot_gate.take_damage(1.0, false)
 	_record_result("Projectile damage can improve gates", int(shoot_gate.current_value) > initial_value)
@@ -1550,6 +1631,65 @@ func _validate_progression_expansion() -> void:
 		"obstacle_spawn_interval": 99.0
 	})
 	await get_tree().process_frame
+	var random_pickups_valid := true
+	for sample_index in 30:
+		var sampled_weapon: String = context_field.weapon_manager.choose_weighted_weapon(0.75)
+		random_pickups_valid = random_pickups_valid and sampled_weapon != "tesla_cannon" and bool(GameManager.weapon_data.get(sampled_weapon, {}).get("collectible", false))
+	_record_result("Random weapon pickups exclude upgrade-only weapons", random_pickups_valid)
+	var weapon_pickup_definition: Dictionary = context_field.reward_manager.get_reward_definition("weapon::shotgun")
+	_record_result("Physical weapon pickups expose the offered weapon label and icon", String(weapon_pickup_definition.get("weapon_id", "")) == "shotgun" and String(weapon_pickup_definition.get("label", "")) == String(GameManager.weapon_data.get("shotgun", {}).get("name", "")) and ResourceLoader.exists(String(weapon_pickup_definition.get("icon", ""))))
+
+	var weapon_gate_row: Array[Node2D] = context_field.gate_manager.spawn_gate_row([{"type": "weapon_pickup", "weapon_id": "shotgun", "value": 1}])
+	var weapon_gate: Node = weapon_gate_row[0]
+	var offered_before: String = String(weapon_gate.get_effect_definition().get("weapon_id", ""))
+	weapon_gate.take_damage(context_field.gate_manager.get_damage_per_value_step(weapon_gate.get_effect_definition()), false)
+	await get_tree().process_frame
+	var offered_after: String = String(weapon_gate.get_effect_definition().get("weapon_id", ""))
+	_record_result("Shooting a weapon gate changes its visible valid offer", offered_before != offered_after and offered_after != "tesla_cannon" and String(weapon_gate.displayed_weapon_id) == offered_after)
+	weapon_gate.collect()
+	_record_result("Weapon gate awards its final displayed weapon", context_field.weapon_manager.get_current_weapon_id() == offered_after)
+	await get_tree().process_frame
+
+	var night_started: bool = context_field.road.request_night_section()
+	_record_result("Night road sections activate with gameplay spawn weighting", night_started and context_field.road.is_night() and context_field.road.get_environment_spawn_weight_multiplier("mutated_dog") > 1.0)
+	context_field.road.night_blend = 0.0
+	context_field.road._update_environment(context_field, float(GameManager.environment_data.get("night", {}).get("transition_seconds", 2.5)) * 0.5)
+	_record_result("Day-to-night lighting blends gradually", context_field.road.night_blend > 0.0 and context_field.road.night_blend < 1.0)
+	_record_result("Animal and boss spawn lane begins safely above the squad", context_field.road.get_spawn_y() < context_field.squad_manager.get_anchor_position().y - 400.0)
+	_record_result("Night and building placeholder textures load into the road renderer", context_field.road.night_lamp_texture != null and context_field.road.building_textures.size() == GameManager.environment_data.get("buildings", {}).get("definitions", {}).size())
+	for building_index in 4:
+		context_field.road._spawn_building(context_field)
+	var buildings_valid: bool = context_field.road.buildings.size() == 4
+	for building in context_field.road.buildings:
+		buildings_valid = buildings_valid and abs(int(building.get("side", 0))) == 1 and float(building.get("y", 0.0)) < 0.0
+	_record_result("Roadside buildings spawn off-road on either side", buildings_valid)
+
+	context_field.distance_travelled = 600.0
+	var enemies_before_event_boss: int = context_field.enemy_manager.enemies.size()
+	var event_boss_started: bool = context_field.wave_spawner.try_spawn_event_boss(["alpha_beast"], "VALIDATION BUILDING")
+	var adjacent_boss_blocked: bool = not context_field.wave_spawner.try_spawn_event_boss(["plague_spitter"], "VALIDATION BUILDING")
+	_record_result("Building and optional-route bosses use shared spacing rules", event_boss_started and adjacent_boss_blocked and context_field.enemy_manager.enemies.size() == enemies_before_event_boss + 1 and String(context_field.enemy_manager.enemies.back().enemy_id) == "alpha_beast")
+	context_field.mutation_manager.next_evolution_distance = 0.0
+	context_field.mutation_manager._try_activate_evolution()
+	var active_evolutions: Array = context_field.mutation_manager.get_active_mutation_state().get("evolutions", [])
+	_record_result("Zombie Evolution Tree activates a valid weighted mutation", active_evolutions.size() == 1 and GameManager.mutation_data.get("evolution_nodes", {}).has(String(active_evolutions[0])))
+
+	var saved_inventory: Array = SaveManager.save_data.get("weapon_inventory", []).duplicate()
+	var saved_owned_tree_ids: Array = SaveManager.save_data.get("permanent_upgrade_ids", []).duplicate()
+	SaveManager.save_data["permanent_upgrade_ids"] = ["logistics_loot_rarity_01"]
+	var special_enemy: Node = context_field.enemy_manager.spawn_enemy("spitter", context_field.squad_manager.get_anchor_position() - Vector2(0.0, 220.0), 1.0)
+	_record_result("Mutation research resistance reduces special-enemy damage", special_enemy._special_attack_damage_multiplier() < 1.0)
+	special_enemy.queue_free()
+	SaveManager.save_data["weapon_inventory"] = ["rifle"]
+	SaveManager.save_data["permanent_upgrade_ids"] = []
+	var tesla_locked: bool = not context_field.weapon_manager.can_use_weapon("tesla_cannon")
+	SaveManager.save_data["weapon_inventory"].append("tesla_cannon")
+	context_field.weapon_manager.ammo_by_weapon["tesla_cannon"] = 2
+	var tesla_consumed_safely: bool = context_field.weapon_manager._consume_limited_ammo("tesla_cannon") and context_field.weapon_manager._consume_limited_ammo("tesla_cannon") and not context_field.weapon_manager._consume_limited_ammo("tesla_cannon") and int(context_field.weapon_manager.get_limited_ammo_state("tesla_cannon").get("current", -1)) == 0
+	_record_result("Tesla requires progression and cannot fire infinitely", tesla_locked and context_field.weapon_manager.can_use_weapon("tesla_cannon") and tesla_consumed_safely)
+	SaveManager.save_data["weapon_inventory"] = saved_inventory
+	SaveManager.save_data["permanent_upgrade_ids"] = saved_owned_tree_ids
+
 	_record_result("Route type applies to HUD", context_field.ui_manager.route_label.text.find("Dangerous Route") >= 0)
 	_record_result("Run modifier applies to report state", String(context_field.get_run_modifier_state().get("title", "")) == "Damaged Barricade")
 	var projectile_target: Node2D = context_field.enemy_manager.spawn_enemy("walker", context_field.squad_manager.get_anchor_position() - Vector2(0.0, 360.0), 1.0)
@@ -1576,6 +1716,14 @@ func _validate_progression_expansion() -> void:
 	await get_tree().process_frame
 	context_field.reward_manager.collect_reward("armoury_rare_supply")
 	_record_result("Rare reward feedback is preserved", String(context_field.reward_manager.last_collected_reward.get("popup", "")).find("LEGENDARY") >= 0)
+	var boss_kills_before: int = int(context_field.run_stats.get("boss_kills", 0))
+	var boss_supplies_before: int = context_field.supplies
+	var reward_boss: Node = context_field.enemy_manager.spawn_enemy("plague_spitter", context_field.squad_manager.get_anchor_position() - Vector2(0.0, 260.0), 1.0)
+	reward_boss.die()
+	reward_boss.die()
+	_record_result("Boss-specific rewards are awarded exactly once", int(context_field.run_stats.get("boss_kills", 0)) == boss_kills_before + 1 and context_field.supplies == boss_supplies_before + int(GameManager.enemy_data.get("plague_spitter", {}).get("reward", {}).get("supplies", 0)))
+	context_field.clear_post_boss_choice_state()
+	get_tree().paused = false
 	context_field.finish_run(true)
 	await get_tree().process_frame
 	_record_result("Report card can open with expanded summary", context_field.ui_manager.end_panel.visible and context_field.ui_manager.end_summary.text.find("Route") >= 0)

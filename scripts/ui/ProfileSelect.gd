@@ -6,6 +6,7 @@ const SLOT_COUNT := 3
 @onready var name_edit: LineEdit = $Margin/Panel/VBox/Name
 @onready var start_button: Button = $Margin/Panel/VBox/Actions/Start
 @onready var clear_button: Button = $Margin/Panel/VBox/Actions/Clear
+@onready var rename_button: Button = $Margin/Panel/VBox/Actions/Rename
 @onready var confirmation: ConfirmationDialog = $ClearConfirmation
 
 var selected_slot := -1
@@ -23,8 +24,8 @@ func _ready() -> void:
 func _select_slot(index: int) -> void:
 	selected_slot = index
 	var info: Dictionary = SaveManager.get_profile_summary(index)
-	name_edit.text = String(info.get("name", ""))
-	name_edit.editable = not bool(info.get("exists", false))
+	name_edit.text = String(info.get("name", "Profile %d" % (index + 1))) if bool(info.get("exists", false)) else "Profile %d" % (index + 1)
+	name_edit.editable = true
 	_refresh()
 
 func _refresh() -> void:
@@ -35,6 +36,7 @@ func _refresh() -> void:
 		button.button_pressed = index == selected_slot
 	start_button.disabled = selected_slot < 0
 	clear_button.disabled = selected_slot < 0 or not SaveManager.profile_exists(selected_slot)
+	rename_button.disabled = selected_slot < 0 or not SaveManager.profile_exists(selected_slot)
 
 func _on_start_pressed() -> void:
 	if selected_slot < 0:
@@ -42,11 +44,18 @@ func _on_start_pressed() -> void:
 	if not SaveManager.profile_exists(selected_slot):
 		var profile_name := name_edit.text.strip_edges()
 		if profile_name.is_empty():
-			profile_name = "Player %d" % (selected_slot + 1)
+			profile_name = "Profile %d" % (selected_slot + 1)
 		SaveManager.create_profile(selected_slot, profile_name)
 	if SaveManager.select_profile(selected_slot):
 		GameManager.initialize_active_profile()
 		get_tree().change_scene_to_file("res://scenes/main/MainMenu.tscn")
+
+func _on_rename_pressed() -> void:
+	if selected_slot < 0 or not SaveManager.profile_exists(selected_slot):
+		return
+	if SaveManager.rename_profile(selected_slot, name_edit.text):
+		name_edit.text = String(SaveManager.get_profile_summary(selected_slot).get("name", "Profile %d" % (selected_slot + 1)))
+		_refresh()
 
 func _on_back_pressed() -> void:
 	get_tree().change_scene_to_file("res://scenes/main/MainMenu.tscn")
@@ -59,6 +68,6 @@ func _on_clear_pressed() -> void:
 
 func _on_clear_confirmed() -> void:
 	SaveManager.clear_profile(selected_slot)
-	name_edit.text = ""
+	name_edit.text = "Profile %d" % (selected_slot + 1)
 	name_edit.editable = true
 	_refresh()

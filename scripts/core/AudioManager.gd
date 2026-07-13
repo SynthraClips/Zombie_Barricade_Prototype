@@ -28,7 +28,12 @@ func play_sfx(name: String) -> void:
 		"zombie_death": 210.0,
 		"explosion": 110.0,
 		"reward_pickup": 880.0,
-		"upgrade_purchased": 660.0
+		"upgrade_purchased": 660.0,
+		"mutated_dog_growl": 185.0,
+		"mutated_boar_charge": 125.0,
+		"rat_swarm": 980.0,
+		"carrion_screech": 1320.0,
+		"mutated_bear_roar": 82.0
 	}.get(name, 440.0)
 	var duration: float = {
 		"gunfire": 0.05,
@@ -36,7 +41,12 @@ func play_sfx(name: String) -> void:
 		"zombie_death": 0.12,
 		"explosion": 0.2,
 		"reward_pickup": 0.14,
-		"upgrade_purchased": 0.18
+		"upgrade_purchased": 0.18,
+		"mutated_dog_growl": 0.2,
+		"mutated_boar_charge": 0.24,
+		"rat_swarm": 0.16,
+		"carrion_screech": 0.22,
+		"mutated_bear_roar": 0.32
 	}.get(name, 0.1)
 	var player: AudioStreamPlayer = AudioStreamPlayer.new()
 	add_child(player)

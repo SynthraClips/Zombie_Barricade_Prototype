@@ -10,7 +10,14 @@
   "barricade_cooldown": 8.6,
   "base_enemy_spawn_interval": 1.72,
   "obstacle_spawn_interval": 3.1,
-  "boss_milestones": [200, 360, 700],
+  "boss_minimum_spacing": 135.0,
+  "boss_rotation": ["boss", "screamer_matriarch", "plague_spitter", "horde_commander", "alpha_beast", "night_stalker"],
+  "boss_milestones": [
+    {"distance":180,"boss_pool":["boss","screamer_matriarch"]},
+    {"distance":350,"boss_pool":["plague_spitter","alpha_beast","night_stalker"]},
+    {"distance":560,"boss_pool":["horde_commander","screamer_matriarch","night_stalker"]},
+    {"distance":780,"boss_pool":["boss","alpha_beast","horde_commander","night_stalker"]}
+  ],
   "post_boss_routes": {
     "extract_now": {
       "title": "Extract Now",
@@ -161,9 +168,21 @@
       "ultimate_power": 42.0,
       "call_in_effect": "damage_boost",
       "ultimate_effect": "grenade_volley"
+    },
+    "dr_imani": {
+      "name":"Dr. Imani","description":"Field Medic who restores the squad and can trigger a revive pulse.","unlock_cost":0,"duration":8.0,"cooldown":23.0,"uses_per_run":2,"power":2,"ultimate_enabled":true,"ultimate_power":4,"call_in_effect":"squad_heal","ultimate_effect":"revive_pulse","placeholder":"res://assets/placeholder/heroes/hero_medic_placeholder.svg"
+    },
+    "rook": {
+      "name":"Rook","description":"Heavy Gunner providing sustained suppressive fire.","unlock_cost":0,"duration":8.0,"cooldown":24.0,"uses_per_run":2,"power":0.42,"ultimate_enabled":true,"ultimate_power":0.7,"call_in_effect":"fire_rate_boost","ultimate_effect":"suppressive_fire","placeholder":"res://assets/placeholder/heroes/hero_heavy_placeholder.svg"
+    },
+    "nyx": {
+      "name":"Nyx","description":"Sniper who prioritises elites and sweeps priority targets.","unlock_cost":0,"duration":7.0,"cooldown":25.0,"uses_per_run":2,"power":48.0,"ultimate_enabled":true,"ultimate_power":62.0,"call_in_effect":"sniper_shot","ultimate_effect":"sniper_sweep","placeholder":"res://assets/placeholder/heroes/hero_sniper_placeholder.svg"
+    },
+    "arc": {
+      "name":"Arc","description":"Tesla Specialist who restores charges and improves electrical efficiency while active.","unlock_cost":0,"duration":7.0,"cooldown":26.0,"uses_per_run":1,"power":5,"ultimate_enabled":true,"ultimate_power":12,"call_in_effect":"tesla_ammo","ultimate_effect":"tesla_storm","requires_upgrade":"tesla_unlock","placeholder":"res://assets/placeholder/heroes/hero_tesla_placeholder.svg"
     }
   },
-  "hero_order": ["captain_rhodes", "engineer_vale", "mara_hale"],
+  "hero_order": ["captain_rhodes", "engineer_vale", "mara_hale", "dr_imani", "rook", "nyx", "arc"],
   "specialists": {
     "doc_mercer": {
       "name": "Doc Mercer",
@@ -199,7 +218,8 @@
   "pickup_collect_radius": 72.0,
   "pickup_magnet_speed": 650.0,
   "crit_multiplier": 1.5,
-  "run_coin_keep_ratio": 1.0,
+  "run_coin_keep_ratio": 0.55,
+  "mission_coin_multiplier": 0.35,
   "horde_pressure": {
     "enabled": true,
     "start_value": 0.0,

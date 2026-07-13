@@ -34,6 +34,12 @@ var phase_damage_multiplier := 1.0
 var special_trigger_used := false
 var charge_time := 0.0
 var visual_animation_time := 0.0
+var lane_change_timer := 0.0
+var lateral_target_x := 0.0
+var armour_break_amount := 0.0
+var armour_break_time := 0.0
+var dead := false
+var uses_placeholder_sprite := false
 
 func initialize(run: Node, enemy_type: String, spawn_position: Vector2, modifier: float, mutation_modifiers: Dictionary = {}) -> void:
 	run_manager = run
@@ -47,7 +53,7 @@ func initialize(run: Node, enemy_type: String, spawn_position: Vector2, modifier
 	base_reward_value = int(definition.get("reward_value", 4))
 	mutation_stat_modifiers = mutation_modifiers.duplicate(true)
 	special_behavior = String(definition.get("special_behavior", "none"))
-	scale = Vector2.ONE * (1.0 if enemy_type != "boss" else 1.6)
+	scale = Vector2.ONE * (1.55 if String(definition.get("category", "")) == "boss" else 1.25 if bool(definition.get("elite", false)) else 1.0)
 	death_fade = 0.0
 	burn_damage_per_second = 0.0
 	burn_time = 0.0
@@ -57,20 +63,47 @@ func initialize(run: Node, enemy_type: String, spawn_position: Vector2, modifier
 	special_trigger_used = false
 	charge_time = 0.0
 	visual_animation_time = 0.0
+	lane_change_timer = randf_range(0.35, 1.0)
+	lateral_target_x = global_position.x
+	armour_break_amount = 0.0
+	armour_break_time = 0.0
+	dead = false
+	var sound_placeholder := String(definition.get("sound_placeholder", ""))
+	if sound_placeholder != "":
+		AudioManager.play_sfx(sound_placeholder)
+	uses_placeholder_sprite = false
+	var placeholder_path := String(definition.get("placeholder", ""))
+	if placeholder_path != "" and ResourceLoader.exists(placeholder_path):
+		goblin_sprite.texture = load(placeholder_path)
+		goblin_sprite.hframes = 1
+		goblin_sprite.vframes = 1
+		goblin_sprite.position = Vector2(0, -12)
+		goblin_sprite.scale = Vector2.ONE * (0.8 if String(definition.get("category", "")) == "boss" else 0.62)
+		uses_placeholder_sprite = true
 	_update_visual(0.0)
 	_recalculate_stats(false)
 
 func update_enemy(delta: float) -> void:
+	if dead:
+		return
 	_update_visual(delta)
 	attack_cooldown = max(attack_cooldown - delta, 0.0)
 	spit_cooldown = max(spit_cooldown - delta, 0.0)
 	slow_time = max(slow_time - delta, 0.0)
+	armour_break_time = max(armour_break_time - delta, 0.0)
+	if armour_break_time <= 0.0:
+		armour_break_amount = 0.0
 	_update_burn(delta)
+	var regeneration := float(mutation_stat_modifiers.get("regeneration_per_second", 0.0))
+	if regeneration > 0.0 and hp > 0.0:
+		hp = min(max_hp, hp + regeneration * delta)
 	if slow_time <= 0.0:
 		slow_amount = 0.0
 	hit_flash = max(hit_flash - delta * 4.0, 0.0)
 	_handle_boss_phase()
 	queue_redraw()
+	if _handle_animal_behavior(delta):
+		return
 	if _handle_screamer(delta):
 		return
 	if _handle_brute_charge(delta):
@@ -92,13 +125,13 @@ func update_enemy(delta: float) -> void:
 		queue_free()
 
 func _handle_spitter(delta: float) -> bool:
-	if special_behavior != "spitter":
+	if special_behavior not in ["spitter", "boss_spitter"]:
 		return false
 	position += Vector2.DOWN * (run_manager.scroll_speed + _get_effective_move_speed() * 0.4) * delta
 	var distance: float = global_position.distance_to(run_manager.squad_manager.get_anchor_position())
 	if distance <= attack_range and spit_cooldown <= 0.0:
 		spit_cooldown = 1.3
-		run_manager.squad_manager.receive_attack(damage)
+		run_manager.squad_manager.receive_attack(_special_attack_damage())
 		run_manager.ui_manager.spawn_bullet_trail(global_position, run_manager.squad_manager.get_anchor_position(), Color("7bf26e"))
 		return true
 	return false
@@ -106,7 +139,7 @@ func _handle_spitter(delta: float) -> bool:
 func _handle_screamer(delta: float) -> bool:
 	if special_behavior != "screamer":
 		return false
-	position += Vector2.DOWN * (run_manager.scroll_speed + _get_effective_move_speed() * delta)
+	position += Vector2.DOWN * (run_manager.scroll_speed + _get_effective_move_speed()) * delta
 	if not special_trigger_used and global_position.y >= run_manager.road.get_squad_y() - 260.0:
 		special_trigger_used = true
 		run_manager.ui_manager.show_status_message("SCREAMER HOWL!", Color("ff8cf5"))
@@ -133,12 +166,12 @@ func _attack_barricade_or_explode() -> void:
 		return
 	attack_cooldown = 0.8
 	if special_behavior == "exploder":
-		run_manager.barricade_manager.damage_active_barricade(damage * 1.5)
+		run_manager.barricade_manager.damage_active_barricade(_special_attack_damage(1.5))
 		run_manager.ui_manager.spawn_explosion(global_position, 34.0)
 		AudioManager.play_sfx("explosion")
 		queue_free()
 	elif special_behavior == "brute_charger":
-		run_manager.barricade_manager.damage_active_barricade(damage * 1.4)
+		run_manager.barricade_manager.damage_active_barricade(_special_attack_damage(1.4))
 	else:
 		run_manager.barricade_manager.damage_active_barricade(damage)
 
@@ -147,21 +180,30 @@ func _attack_squad_or_explode() -> void:
 		return
 	attack_cooldown = 0.9
 	if special_behavior == "exploder":
-		run_manager.squad_manager.receive_attack(damage * 1.6)
+		run_manager.squad_manager.receive_attack(_special_attack_damage(1.6))
 		run_manager.ui_manager.spawn_explosion(global_position, 40.0)
 		AudioManager.play_sfx("explosion")
 		queue_free()
 	elif special_behavior == "treasure_horde":
 		run_manager.squad_manager.receive_attack(damage * 0.8)
 	elif special_behavior == "grabber":
-		run_manager.squad_manager.receive_attack(max(damage, run_manager.squad_manager.base_soldier_hp))
+		run_manager.squad_manager.receive_attack(max(damage, run_manager.squad_manager.base_soldier_hp) * _special_attack_damage_multiplier())
 		run_manager.ui_manager.show_status_message("GRABBER PULLED A SOLDIER!", Color("d5a7ff"))
 		queue_free()
 	else:
 		run_manager.squad_manager.receive_attack(damage)
 
+func _special_attack_damage(multiplier: float = 1.0) -> float:
+	return damage * multiplier * _special_attack_damage_multiplier()
+
+func _special_attack_damage_multiplier() -> float:
+	return 1.0 - clampf(UpgradeManager.get_tree_effect_total("mutation_resistance"), 0.0, 0.6)
+
 func take_damage(amount: float, explosive_hit: bool) -> void:
-	hp -= amount
+	if dead:
+		return
+	var armour := clampf(float(definition.get("armour", 0.0)) - armour_break_amount, 0.0, 0.8)
+	hp -= amount * (1.0 - armour)
 	hit_flash = 1.0
 	run_manager.ui_manager.spawn_damage_number(global_position, amount)
 	AudioManager.play_sfx("zombie_hit")
@@ -169,6 +211,9 @@ func take_damage(amount: float, explosive_hit: bool) -> void:
 		die()
 
 func die() -> void:
+	if dead:
+		return
+	dead = true
 	run_manager.register_kill(enemy_id)
 	var coins_awarded: int = run_manager.add_coins(reward_value)
 	if coins_awarded <= 0 and reward_value > 0:
@@ -177,16 +222,72 @@ func die() -> void:
 		run_manager.coins_changed.emit(run_manager.coins)
 		coins_awarded = reward_value
 	run_manager.ui_manager.spawn_reward_popup(global_position, "+%d coins" % coins_awarded, Color("f5d142"))
-	if enemy_id == "boss":
+	if String(definition.get("category", "")) == "boss":
 		run_manager.reward_manager.apply_reward_by_id("boss_relic")
 		run_manager.ui_manager.spawn_reward_popup(global_position + Vector2(0.0, -24.0), "+90M ROUTE", Color("7de3ff"))
 		run_manager.ui_manager.show_status_message("BOSS DEFEATED", Color("ffd166"))
+		var boss_reward: Dictionary = definition.get("reward", {})
+		run_manager.add_coins(int(boss_reward.get("coins", 0)))
+		run_manager.add_supplies(int(boss_reward.get("supplies", 0)))
+		run_manager.add_survivors(int(boss_reward.get("survivors", 0)))
 	if special_behavior == "treasure_horde":
 		run_manager.reward_manager.spawn_reward("coins_large", global_position + Vector2(-22.0, 0.0))
 		run_manager.reward_manager.spawn_reward("coins_large", global_position + Vector2(22.0, 0.0))
 	AudioManager.play_sfx("zombie_death")
 	run_manager.ui_manager.spawn_explosion(global_position, 24.0 if enemy_id != "boss" else 42.0)
 	queue_free()
+
+func _handle_animal_behavior(delta: float) -> bool:
+	match special_behavior:
+		"animal_dog":
+			lane_change_timer -= delta
+			if lane_change_timer <= 0.0:
+				lane_change_timer = float(definition.get("lane_change_interval", 0.75))
+				lateral_target_x = run_manager.road.get_random_lane_x(global_position.y, 64.0)
+			global_position.x = move_toward(global_position.x, lateral_target_x, 145.0 * delta)
+		"animal_boar", "boss_beast":
+			if not special_trigger_used and global_position.y >= run_manager.road.get_squad_y() - 420.0:
+				special_trigger_used = true
+				charge_time = 1.4
+				run_manager.ui_manager.show_status_message("BEAST CHARGE!", Color("ffad66"))
+			if charge_time > 0.0:
+				charge_time -= delta
+				position += Vector2.DOWN * (run_manager.scroll_speed + _get_effective_move_speed() * float(definition.get("charge_multiplier", 3.0))) * delta
+		"rat_swarm":
+			global_position.x += sin(visual_animation_time * 8.0) * 55.0 * delta
+		"carrion_bird", "boss_stalker":
+			global_position.x += sin(visual_animation_time * 4.5) * 120.0 * delta
+			if special_behavior == "boss_stalker" and int(visual_animation_time) % 4 == 0:
+				modulate.a = 0.62
+			else:
+				modulate.a = 1.0
+		"mutated_bear":
+			if not special_trigger_used and global_position.y >= run_manager.road.get_squad_y() - 300.0:
+				special_trigger_used = true
+				run_manager.ui_manager.show_status_message("MUTATED BEAR ROAR!", Color("d9a270"))
+				for nearby in run_manager.enemy_manager.get_enemies_sorted_from(global_position, 180.0):
+					if nearby != self:
+						nearby.phase_speed_multiplier = max(nearby.phase_speed_multiplier, 1.15)
+		"boss_screamer":
+			return _handle_boss_summoner(delta)
+		"boss_spitter":
+			return _handle_spitter(delta)
+		"boss_commander":
+			if not special_trigger_used and hp <= max_hp * 0.65:
+				special_trigger_used = true
+				for offset in [-110.0, -40.0, 40.0, 110.0]:
+					run_manager.enemy_manager.spawn_enemy("armoured_walker", Vector2(run_manager.road.clamp_lane_x(global_position.x + offset, 220.0, 64.0), global_position.y - 130.0), run_manager.get_difficulty_multiplier())
+	return false
+
+func _handle_boss_summoner(delta: float) -> bool:
+	position += Vector2.DOWN * (run_manager.scroll_speed + _get_effective_move_speed() * 0.35) * delta
+	spit_cooldown = max(spit_cooldown - delta, 0.0)
+	if spit_cooldown <= 0.0 and global_position.y >= 220.0:
+		spit_cooldown = 4.5
+		run_manager.ui_manager.show_status_message("MATRIARCH SUMMONS THE HORDE", Color("ff8cf5"))
+		for offset in [-100.0, 0.0, 100.0]:
+			run_manager.enemy_manager.spawn_enemy("runner", Vector2(run_manager.road.clamp_lane_x(global_position.x + offset, 180.0, 64.0), global_position.y - 100.0), run_manager.get_difficulty_multiplier())
+	return false
 
 func set_mutation_modifiers(modifiers: Dictionary) -> void:
 	mutation_stat_modifiers = modifiers.duplicate(true)
@@ -201,7 +302,7 @@ func _draw() -> void:
 	if enemy_id == "walker":
 		draw_rect(Rect2(-18, -68, 36, 6), Color("20242a"))
 		draw_rect(Rect2(-18, -68, 36 * (hp / max(max_hp, 1.0)), 6), Color("ff6262"))
-		draw_string(ThemeDB.fallback_font, Vector2(-24, 18), String(definition.get("name", enemy_id)).to_upper(), HORIZONTAL_ALIGNMENT_LEFT, 64, 12, Color.WHITE)
+		draw_string(ThemeDB.fallback_font, Vector2(-48, 18), _short_display_name(), HORIZONTAL_ALIGNMENT_CENTER, 96, 10, Color.WHITE)
 		return
 	match special_behavior:
 		"dog":
@@ -228,7 +329,7 @@ func _draw() -> void:
 		"exploder":
 			body_width = 26.0
 			body_height = 34.0
-		"boss":
+		"boss", "boss_tank", "boss_screamer", "boss_spitter", "boss_commander", "boss_stalker", "boss_beast":
 			body_width = 44.0
 			body_height = 54.0
 	draw_rect(Rect2(-body_width * 0.5, -body_height * 0.5, body_width, body_height), color)
@@ -241,21 +342,25 @@ func _draw() -> void:
 		draw_circle(Vector2(0, -12), 8.0, Color("ff8cf5"))
 	if special_behavior == "treasure_horde":
 		draw_circle(Vector2(0, -6), 8.0, Color("ffd166"))
-	if special_behavior == "boss":
+	if String(definition.get("category", "")) == "boss":
 		draw_rect(Rect2(-24, 12, 48, 8), Color("5a1d1d"))
 	draw_rect(Rect2(-18, -body_height * 0.5 - 16, 36, 6), Color("20242a"))
 	draw_rect(Rect2(-18, -body_height * 0.5 - 16, 36 * (hp / max(max_hp, 1.0)), 6), Color("ff6262"))
-	draw_string(ThemeDB.fallback_font, Vector2(-24, body_height * 0.5 + 18), String(definition.get("name", enemy_id)).to_upper(), HORIZONTAL_ALIGNMENT_LEFT, 64, 12, Color.WHITE)
+	draw_string(ThemeDB.fallback_font, Vector2(-52, body_height * 0.5 + 18), _short_display_name(), HORIZONTAL_ALIGNMENT_CENTER, 104, 10, Color.WHITE)
+
+func _short_display_name() -> String:
+	return String(definition.get("name", enemy_id)).to_upper().left(15)
 
 func _update_visual(delta: float) -> void:
 	if goblin_sprite == null:
 		return
-	var use_goblin: bool = enemy_id == "walker"
-	goblin_sprite.visible = use_goblin
-	if not use_goblin:
+	var use_sprite: bool = enemy_id == "walker" or uses_placeholder_sprite
+	goblin_sprite.visible = use_sprite
+	if not use_sprite:
 		return
 	visual_animation_time += delta
-	goblin_sprite.frame_coords = Vector2i(int(floor(visual_animation_time * 10.0)) % 6, 0)
+	if enemy_id == "walker":
+		goblin_sprite.frame_coords = Vector2i(int(floor(visual_animation_time * 10.0)) % 6, 0)
 	goblin_sprite.modulate = Color.WHITE.lerp(Color("fff2d2"), hit_flash)
 
 func apply_slow(amount: float, duration: float) -> void:
@@ -267,11 +372,15 @@ func apply_burn(damage_per_second: float, duration: float) -> void:
 	burn_time = max(burn_time, duration)
 	burn_tick_time = max(burn_tick_time, 0.0)
 
+func apply_armour_break(amount: float, duration: float) -> void:
+	armour_break_amount = max(armour_break_amount, clampf(amount, 0.0, 0.8))
+	armour_break_time = max(armour_break_time, duration)
+
 func _get_effective_move_speed() -> float:
 	return move_speed * (1.0 - slow_amount)
 
 func _handle_boss_phase() -> void:
-	if special_behavior != "boss" or boss_phase_triggered or hp > max_hp * 0.5:
+	if String(definition.get("category", "")) != "boss" or boss_phase_triggered or hp > max_hp * 0.5:
 		return
 	boss_phase_triggered = true
 	phase_speed_multiplier = 1.3

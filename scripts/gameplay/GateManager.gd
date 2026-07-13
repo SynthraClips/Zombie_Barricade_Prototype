@@ -60,7 +60,7 @@ func _gate_corridor_is_clear() -> bool:
 	if run_manager.pending_post_boss_choice:
 		return false
 	for enemy in run_manager.enemy_manager.enemies:
-		if is_instance_valid(enemy) and String(enemy.get("enemy_id")) == "boss":
+		if is_instance_valid(enemy) and String(GameManager.enemy_data.get(String(enemy.get("enemy_id")), {}).get("category", "")) == "boss":
 			return false
 	return true
 
@@ -170,7 +170,8 @@ func _format_gate_label_normalized(normalized: Dictionary) -> String:
 		"temporary_shield":
 			return "+%d SHIELD" % int(round(float(value)))
 		"weapon_pickup":
-			return "WEAPON CRATE"
+			var weapon_id := String(normalized.get("weapon_id", "rifle"))
+			return String(GameManager.weapon_data.get(weapon_id, {}).get("name", weapon_id)).to_upper()
 		"coins":
 			return "+%d COINS" % int(value)
 		"heal_soldiers":
@@ -181,6 +182,20 @@ func _format_gate_label_normalized(normalized: Dictionary) -> String:
 			return "BARRICADE READY"
 		"risk_gate":
 			return "RISK GATE"
+		"supplies":
+			return "+%d SUPPLIES" % int(value)
+		"survivors":
+			return "+%d SURVIVORS" % int(value)
+		"add_role_soldier":
+			return "+%d %s" % [int(value), String(normalized.get("role_id", "specialist")).replace("_", " ").to_upper()]
+		"tesla_ammo":
+			return "+%d TESLA AMMO" % int(value)
+		"night_section":
+			return "ENTER NIGHT"
+		"hero_cooldown":
+			return "-%ds HERO COOLDOWN" % int(value)
+		"hero_duration_gate":
+			return "+%ds HERO DURATION" % int(value)
 	return String(normalized.get("label", "GATE")).to_upper()
 
 func _spawn_next_gate_row() -> void:
@@ -188,13 +203,13 @@ func _spawn_next_gate_row() -> void:
 	if rows.is_empty():
 		_spawn_start_value_row()
 		return
-	var chosen_index: int = rng.randi_range(0, rows.size() - 1)
+	var chosen_index: int = _pick_weighted_row_index(rows)
 	var row_def: Dictionary = rows[chosen_index]
 	for attempt in 4:
 		var signature := JSON.stringify(row_def.get("gates", []))
 		if not recent_layouts.has(signature) or rows.size() <= 2:
 			break
-		chosen_index = rng.randi_range(0, rows.size() - 1)
+		chosen_index = _pick_weighted_row_index(rows)
 		row_def = rows[chosen_index]
 	spawn_index += 1
 	var gates: Array = row_def.get("gates", []).duplicate(true)
@@ -229,6 +244,10 @@ func _spawn_start_value_row() -> void:
 func _normalize_gate_effect(effect: Dictionary) -> Dictionary:
 	var normalized: Dictionary = effect.duplicate(true)
 	var gate_type: String = String(normalized.get("type", ""))
+	if gate_type == "tesla_ammo" and not UpgradeManager.has_tree_effect("tesla_unlock"):
+		gate_type = "supplies"
+		normalized["type"] = "supplies"
+		normalized["value"] = max(3, int(normalized.get("value", 3)))
 	var has_start_value: bool = normalized.has("start_value")
 	if gate_type == "":
 		var start_value: int = int(normalized.get("value", normalized.get("start_value", 0)))
@@ -237,12 +256,14 @@ func _normalize_gate_effect(effect: Dictionary) -> Dictionary:
 		normalized["value"] = abs(start_value)
 	else:
 		match gate_type:
-			"add_soldiers", "remove_soldiers", "multiply_soldiers", "coins", "heal_soldiers", "barricade_repair", "barricade_cooldown_reset":
+			"add_soldiers", "add_role_soldier", "remove_soldiers", "multiply_soldiers", "coins", "supplies", "survivors", "tesla_ammo", "heal_soldiers", "barricade_repair", "barricade_cooldown_reset", "hero_cooldown", "hero_duration_gate":
 				normalized["value"] = int(normalized.get("value", 0))
 			"fire_rate_boost", "damage_boost", "temporary_shield":
 				normalized["value"] = float(normalized.get("value", 0.0))
 			"weapon_pickup":
 				normalized["value"] = int(normalized.get("value", 1))
+				if String(normalized.get("weapon_id", "")) == "":
+					normalized["weapon_id"] = choose_gate_weapon([])
 			"risk_gate":
 				normalized["value"] = int(normalized.get("reward_value", normalized.get("value", 1)))
 	if not has_start_value:
@@ -255,6 +276,9 @@ func _normalize_gate_effect(effect: Dictionary) -> Dictionary:
 		normalized["label"] = _format_gate_label_normalized(normalized)
 	if not normalized.has("color"):
 		normalized["color"] = _color_for_gate(normalized)
+	_apply_positive_gate_scaling(normalized)
+	if gate_type != "risk_gate":
+		normalized["label"] = _format_gate_label_normalized(normalized)
 	return normalized
 
 func get_damage_per_value_step(effect: Dictionary) -> float:
@@ -276,7 +300,7 @@ func _compute_display_start_value(effect: Dictionary) -> int:
 
 func _default_improvement_step(effect: Dictionary):
 	match String(effect.get("type", "")):
-		"add_soldiers", "remove_soldiers", "multiply_soldiers", "coins", "heal_soldiers":
+		"add_soldiers", "remove_soldiers", "multiply_soldiers", "coins", "supplies", "survivors", "tesla_ammo", "heal_soldiers":
 			return 1
 		"barricade_repair":
 			return 10
@@ -288,10 +312,54 @@ func _default_improvement_step(effect: Dictionary):
 
 func _color_for_gate(effect: Dictionary) -> String:
 	match String(effect.get("type", "")):
-		"add_soldiers", "fire_rate_boost", "damage_boost", "temporary_shield", "weapon_pickup", "coins", "multiply_soldiers", "heal_soldiers", "barricade_repair", "barricade_cooldown_reset":
+		"add_soldiers", "fire_rate_boost", "damage_boost", "temporary_shield", "weapon_pickup", "coins", "supplies", "survivors", "tesla_ammo", "multiply_soldiers", "heal_soldiers", "barricade_repair", "barricade_cooldown_reset", "hero_cooldown", "hero_duration_gate", "night_section":
 			return "#64e291"
 		"remove_soldiers":
 			return "#ff8080"
 		"risk_gate":
 			return "#ff7d7d"
 	return "#ffd166"
+
+func choose_gate_weapon(excluded: Array) -> String:
+	return run_manager.weapon_manager.choose_weighted_weapon(run_manager.distance_travelled / max(run_manager.target_distance, 1.0), excluded + ["tesla_cannon"])
+
+func cycle_weapon_offer(effect: Dictionary) -> bool:
+	if String(effect.get("type", "")) != "weapon_pickup":
+		return false
+	var previous := String(effect.get("weapon_id", ""))
+	var next_weapon := choose_gate_weapon([previous])
+	if next_weapon == previous:
+		return false
+	effect["weapon_id"] = next_weapon
+	effect["label"] = _format_gate_label_normalized(effect)
+	return true
+
+func _apply_positive_gate_scaling(effect: Dictionary) -> void:
+	if bool(effect.get("scaled", false)):
+		return
+	var gate_type := String(effect.get("type", ""))
+	var scaling: Dictionary = GameManager.gate_data.get("positive_scaling", {})
+	var progress: float = clampf(run_manager.distance_travelled / max(run_manager.target_distance, 1.0), 0.0, 1.5)
+	var growth: float = 1.0 + minf(progress, 1.0) * float(scaling.get("run_growth", 0.25))
+	if gate_type in ["coins", "supplies", "barricade_repair", "temporary_shield"]:
+		effect["value"] = int(round(float(effect.get("value", 0)) * growth))
+	if gate_type == "add_soldiers":
+		var squad_count: int = run_manager.squad_manager.get_soldier_count()
+		var cap := int(scaling.get("soldier_value_cap", 4))
+		if squad_count >= int(scaling.get("large_squad_threshold", 18)):
+			cap = max(1, cap - 2)
+		effect["value"] = mini(int(effect.get("value", 1)), cap)
+	if gate_type in ["fire_rate_boost", "damage_boost"]:
+		effect["value"] = min(float(effect.get("value", 0.0)), float(scaling.get("temporary_bonus_cap", 0.4)))
+	effect["scaled"] = true
+
+func _pick_weighted_row_index(rows: Array) -> int:
+	var total := 0.0
+	for row in rows:
+		total += max(0.01, float(row.get("weight", 1.0)))
+	var roll := rng.randf() * total
+	for index in range(rows.size()):
+		roll -= max(0.01, float(rows[index].get("weight", 1.0)))
+		if roll <= 0.0:
+			return index
+	return rows.size() - 1

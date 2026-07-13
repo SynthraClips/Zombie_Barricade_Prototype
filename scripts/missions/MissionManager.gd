@@ -93,9 +93,13 @@ func claim_mission(mission_id: String) -> bool:
 	var target_value: int = int(mission.get("target_value", 1))
 	if not bool(state.get("claim_pending", false)) and int(state.get("progress", 0)) < target_value:
 		return false
-	var reward_coins: int = int(mission.get("reward", {}).get("coins", 0))
-	if reward_coins > 0:
-		SaveManager.add_banked_coins(reward_coins)
+	var reward: Dictionary = mission.get("reward", {})
+	var reward_coins: int = int(round(float(reward.get("coins", 0)) * float(GameManager.game_config.get("mission_coin_multiplier", 0.35))))
+	var default_supplies := 2 if String(mission.get("category", "standard")) == "challenge" else 1
+	var reward_supplies := int(reward.get("supplies", default_supplies))
+	var reward_survivors := int(reward.get("survivors", 0))
+	if reward_coins > 0 or reward_supplies > 0 or reward_survivors > 0:
+		SaveManager.add_progression_resources(reward_coins, reward_supplies, reward_survivors)
 	state["claim_pending"] = false
 	state["claimed_count"] = int(state.get("claimed_count", 0)) + 1
 	if bool(mission.get("repeatable", false)):
@@ -129,7 +133,9 @@ func get_mission_rows() -> Array:
 			"target": int(mission.get("target_value", 0)),
 			"completed": _is_fully_claimed(mission),
 			"claim_pending": bool(state.get("claim_pending", false)),
-			"reward_coins": int(mission.get("reward", {}).get("coins", 0)),
+			"reward_coins": int(round(float(mission.get("reward", {}).get("coins", 0)) * float(GameManager.game_config.get("mission_coin_multiplier", 0.35)))),
+			"reward_supplies": int(mission.get("reward", {}).get("supplies", 2 if String(mission.get("category", "standard")) == "challenge" else 1)),
+			"reward_survivors": int(mission.get("reward", {}).get("survivors", 0)),
 			"category": String(mission.get("category", "standard")),
 			"repeatable": bool(mission.get("repeatable", false)),
 			"claimed_count": int(state.get("claimed_count", 0))

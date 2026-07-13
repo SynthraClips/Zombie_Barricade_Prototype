@@ -5,6 +5,7 @@ class_name UIManager
 @onready var distance_label: Label = $HUD/Margin/VBox/Distance
 @onready var squad_label: Label = $HUD/Margin/VBox/Squad
 @onready var coins_label: Label = $HUD/Margin/VBox/Coins
+@onready var resources_label: Label = $HUD/Margin/VBox/Resources
 @onready var wave_label: Label = $HUD/Margin/VBox/Wave
 @onready var route_label: Label = $HUD/Margin/VBox/Route
 @onready var pressure_label: Label = $HUD/Margin/VBox/Pressure
@@ -15,6 +16,8 @@ class_name UIManager
 @onready var weapon_label: Label = $HUD/Margin/VBox/Weapon
 @onready var special_ammo_label: Label = $HUD/Margin/VBox/SpecialAmmo
 @onready var hero_label: Label = $HUD/Margin/VBox/Hero
+
+var active_status_messages: Array[Label] = []
 @onready var deploy_barricade_button: Button = $HUD/ActionPanel/Margin/Buttons/DeployBarricade
 @onready var call_hero_button: Button = $HUD/ActionPanel/Margin/Buttons/CallHero
 @onready var hero_ultimate_button: Button = $HUD/ActionPanel/Margin/Buttons/HeroUltimate
@@ -44,6 +47,7 @@ func setup(run: Node) -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_set_pause_ui_process_mode(self)
 	run_manager.coins_changed.connect(_on_coins_changed)
+	run_manager.resources_changed.connect(_on_resources_changed)
 	run_manager.distance_changed.connect(_on_distance_changed)
 	run_manager.wave_changed.connect(_on_wave_changed)
 	run_manager.squad_changed.connect(_on_squad_changed)
@@ -53,6 +57,7 @@ func setup(run: Node) -> void:
 	run_manager.post_boss_choice_opened.connect(show_post_boss_choice)
 	run_manager.post_boss_choice_closed.connect(_on_post_boss_choice_closed)
 	_on_coins_changed(run_manager.coins)
+	_on_resources_changed(run_manager.supplies, run_manager.survivors)
 	_on_distance_changed(run_manager.distance_travelled)
 	_on_wave_changed(run_manager.current_wave)
 	_on_squad_changed(run_manager.squad_manager.get_soldier_count())
@@ -132,9 +137,13 @@ func _process(delta: float) -> void:
 			hero_ultimate_button.disabled = not ultimate_ready
 			hero_ultimate_button.text = "Ultimate [U]" if ultimate_ready else "Ultimate [U] - Not Ready"
 		var ammo_state: Dictionary = run_manager.weapon_manager.get_special_ammo_state()
-		if String(ammo_state.get("type", "")) == "":
+		var limited_state: Dictionary = run_manager.weapon_manager.get_limited_ammo_state()
+		if String(ammo_state.get("type", "")) == "" and String(limited_state.get("weapon_id", "")) == "":
 			special_ammo_label.visible = false
 			special_ammo_label.text = ""
+		elif String(limited_state.get("weapon_id", "")) != "":
+			special_ammo_label.visible = true
+			special_ammo_label.text = "Ammo: %s %d/%d" % [String(limited_state.get("label", "LIMITED")).to_upper(), int(limited_state.get("current", 0)), int(limited_state.get("maximum", 0))]
 		else:
 			special_ammo_label.visible = true
 			special_ammo_label.text = "Ammo: %s | %.1fs" % [String(ammo_state.get("label", "SPECIAL")), float(ammo_state.get("time_remaining", 0.0))]
@@ -146,6 +155,9 @@ func _process(delta: float) -> void:
 func _on_coins_changed(value: int) -> void:
 	coins_label.text = "Coins: %d" % value
 	_pulse_label(coins_label, Color("f5d142"))
+
+func _on_resources_changed(supplies: int, survivors: int) -> void:
+	resources_label.text = "Supplies: %d | Survivors: %d" % [supplies, survivors]
 
 func _on_distance_changed(value: float) -> void:
 	distance_label.text = "Distance: %dm / %dm" % [int(value), int(run_manager.target_distance)]
@@ -191,18 +203,17 @@ func _on_pressure_changed(state: Dictionary) -> void:
 func _update_mutation_label() -> void:
 	var mutation_state: Dictionary = run_manager.mutation_manager.get_active_mutation_state() if run_manager != null and run_manager.mutation_manager != null else {}
 	var mutation_id: String = String(mutation_state.get("id", ""))
-	if mutation_id == "":
+	var evolution_labels: Array = mutation_state.get("evolution_labels", [])
+	if mutation_id == "" and evolution_labels.is_empty():
 		mutation_label.visible = false
 		mutation_label.text = ""
 		return
 	mutation_label.visible = true
 	var reward_multiplier: float = float(mutation_state.get("reward_multiplier", 1.0))
-	var reward_suffix: String = " | x%.2f coins" % reward_multiplier if reward_multiplier > 1.0 else ""
-	mutation_label.text = "Mutation: %s | %.1fs%s" % [
-		String(mutation_state.get("label", mutation_id)),
-		float(mutation_state.get("time_remaining", 0.0)),
-		reward_suffix
-	]
+	var reward_suffix: String = " | x%.2f rewards" % reward_multiplier if reward_multiplier > 1.0 else ""
+	var timed_text := "Mutation: %s %.1fs" % [String(mutation_state.get("label", mutation_id)), float(mutation_state.get("time_remaining", 0.0))] if mutation_id != "" else ""
+	var evolution_text := "Evolution: %s" % ", ".join(evolution_labels) if not evolution_labels.is_empty() else ""
+	mutation_label.text = "%s%s%s" % [timed_text, " | " if timed_text != "" and evolution_text != "" else "", evolution_text + reward_suffix]
 
 func _update_pressure_visuals() -> void:
 	if run_manager == null or not run_manager.is_horde_pressure_enabled():
@@ -301,19 +312,46 @@ func spawn_explosion(world_position: Vector2, radius: float) -> void:
 	run_manager.add_screen_shake(0.12, 5.0)
 
 func show_status_message(text: String, color: Color = Color.WHITE) -> void:
+	_prune_status_messages()
+	if active_status_messages.size() >= 3:
+		var oldest: Label = active_status_messages.pop_front()
+		if is_instance_valid(oldest):
+			oldest.queue_free()
+	_reposition_status_messages()
 	var label := Label.new()
 	label.text = text
-	label.position = Vector2(150.0, 96.0)
+	label.position = Vector2(330.0, 92.0 + active_status_messages.size() * 34.0)
 	label.size = Vector2(420.0, 40.0)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	label.add_theme_font_size_override("font_size", 22)
 	label.modulate = color
 	popup_layer.add_child(label)
+	active_status_messages.append(label)
 	var tween := create_tween()
-	tween.tween_property(label, "position:y", label.position.y - 14.0, 0.2)
-	tween.parallel().tween_property(label, "modulate:a", 0.0, 1.1)
-	tween.finished.connect(label.queue_free)
+	tween.tween_interval(0.35)
+	tween.tween_property(label, "modulate:a", 0.0, 0.75)
+	tween.finished.connect(_finish_status_message.bind(label.get_instance_id()))
+
+func _finish_status_message(label_instance_id: int) -> void:
+	for index in range(active_status_messages.size() - 1, -1, -1):
+		var active_label: Label = active_status_messages[index]
+		if not is_instance_valid(active_label):
+			active_status_messages.remove_at(index)
+		elif active_label.get_instance_id() == label_instance_id:
+			active_status_messages.remove_at(index)
+			active_label.queue_free()
+	_reposition_status_messages()
+
+func _prune_status_messages() -> void:
+	for index in range(active_status_messages.size() - 1, -1, -1):
+		if not is_instance_valid(active_status_messages[index]):
+			active_status_messages.remove_at(index)
+
+func _reposition_status_messages() -> void:
+	for index in active_status_messages.size():
+		if is_instance_valid(active_status_messages[index]):
+			active_status_messages[index].position.y = 92.0 + index * 34.0
 
 func toggle_pause() -> void:
 	if post_boss_panel.visible:
@@ -369,15 +407,21 @@ func show_end_screen(victory: bool, summary: Dictionary) -> void:
 		if bool(summary.get("new_best_coins", false)):
 			tags.append("New Best Coins")
 		best_line = "\n%s" % ", ".join(tags)
-	end_summary.text = "Distance %dm | Score %d\nCoins %d | Kills %d | Rescued %d\nPickups %d | Gates %d | Bosses %d\nRoute %s | Modifier %s\nSquad %d%s" % [
+	end_summary.text = "Distance %dm | Score %d\nCoins %d | Supplies %d | Survivors %d\nKills %d | Mutated Animals %d | Bosses %d\nPickups %d | Gates %d | Night Sections %d\nMutations %d | Hero Calls %d | Ultimates %d\nRoute %s | Modifier %s\nSquad %d%s" % [
 		int(summary.get("distance", 0)),
 		int(summary.get("score", 0)),
 		int(summary.get("coins_earned", 0)),
+		int(summary.get("supplies_earned", 0)),
+		int(summary.get("survivors_earned", 0)),
 		int(summary.get("kills", 0)),
-		int(summary.get("soldiers_rescued", 0)),
+		int(summary.get("mutated_animals_killed", 0)),
+		int(summary.get("bosses_defeated", summary.get("boss_kills", 0))),
 		int(summary.get("pickups_collected", 0)),
 		int(summary.get("gates_chosen", 0)),
-		int(summary.get("bosses_defeated", summary.get("boss_kills", 0))),
+		int(summary.get("night_sections", 0)),
+		summary.get("mutation_history", []).size(),
+		int(summary.get("hero_uses", 0)),
+		int(summary.get("hero_ultimates", 0)),
 		route_type_text,
 		modifier_text,
 		int(summary.get("final_soldiers", 0)),

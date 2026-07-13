@@ -1,10 +1,10 @@
 {
   "waves": [
     {"wave": 1, "spawn_count": 6, "pool": ["walker", "walker", "runner"]},
-    {"wave": 2, "spawn_count": 9, "pool": ["walker", "runner", "runner", "dog", "spitter"]},
-    {"wave": 3, "spawn_count": 11, "pool": ["walker", "runner", "runner", "crawler", "tank", "exploder"]},
-    {"wave": 4, "spawn_count": 13, "pool": ["runner", "runner", "dog", "tank", "spitter", "exploder", "screamer", "grabber"]},
-    {"wave": 5, "spawn_count": 15, "pool": ["walker", "runner", "runner", "crawler", "tank", "spitter", "exploder", "screamer", "treasure_horde", "armoured_walker"]},
-    {"wave": 6, "spawn_count": 17, "pool": ["runner", "dog", "crawler", "tank", "spitter", "screamer", "brute_charger", "treasure_horde", "grabber", "armoured_walker"]}
+    {"wave": 2, "spawn_count": 9, "pool": ["walker", "runner", "runner", "dog", "spitter", "mutated_dog"]},
+    {"wave": 3, "spawn_count": 11, "pool": ["walker", "runner", "runner", "crawler", "tank", "exploder", "rat_swarm"]},
+    {"wave": 4, "spawn_count": 13, "pool": ["runner", "runner", "dog", "tank", "spitter", "exploder", "screamer", "grabber", "mutated_boar", "carrion_bird"]},
+    {"wave": 5, "spawn_count": 15, "pool": ["walker", "runner", "crawler", "tank", "spitter", "exploder", "screamer", "treasure_horde", "armoured_walker", "mutated_dog", "rat_swarm", "mutated_boar"]},
+    {"wave": 6, "spawn_count": 17, "pool": ["runner", "dog", "crawler", "tank", "spitter", "screamer", "brute_charger", "treasure_horde", "grabber", "armoured_walker", "mutated_dog", "mutated_boar", "rat_swarm", "carrion_bird", "mutated_bear"]}
   ]
 }

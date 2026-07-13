@@ -1,6 +1,9 @@
 extends Node
 class_name WeaponManager
 
+signal weapon_changed(weapon_id: String)
+signal limited_ammo_changed(weapon_id: String, current: int, maximum: int)
+
 @export var projectile_scene: PackedScene
 
 var run_manager: Node
@@ -9,17 +12,20 @@ var temporary_weapon_id := ""
 var temporary_weapon_time := 0.0
 var special_ammo_type := ""
 var special_ammo_time := 0.0
+var ammo_by_weapon: Dictionary = {}
 
 func setup(run: Node) -> void:
 	run_manager = run
 	if projectile_scene == null:
 		projectile_scene = load("res://scenes/gameplay/Projectile.tscn")
 	current_weapon_id = GameManager.get_starting_weapon_id()
-	if current_weapon_id == "" or not GameManager.weapon_data.has(current_weapon_id):
+	if current_weapon_id == "" or not can_use_weapon(current_weapon_id):
 		current_weapon_id = "rifle"
 	temporary_weapon_id = ""
 	temporary_weapon_time = 0.0
 	clear_special_ammo()
+	_initialize_limited_ammo()
+	weapon_changed.emit(current_weapon_id)
 
 func _process(delta: float) -> void:
 	if temporary_weapon_time > 0.0:
@@ -49,6 +55,12 @@ func get_weapon_data_for_role(role_id: String) -> Dictionary:
 
 func fire_weapon(soldier: Node, target: Node2D) -> void:
 	var weapon: Dictionary = get_effective_weapon_data_for_role(String(soldier.get("role_id")))
+	var resolved_weapon_id := _weapon_id_for_definition(weapon)
+	if bool(weapon.get("limited_ammo", false)) and not _consume_limited_ammo(resolved_weapon_id):
+		if resolved_weapon_id == get_current_weapon_id():
+			set_active_weapon("rifle")
+			run_manager.ui_manager.show_status_message("%s EMPTY - RIFLE EQUIPPED" % String(weapon.get("name", "WEAPON")).to_upper(), Color("ffb36b"))
+		return
 	if run_manager.is_auto_fire_enabled() and not _is_tesla_weapon(weapon):
 		_fire_straight_ahead(soldier, weapon)
 		return
@@ -206,6 +218,16 @@ func get_damage_for_projectile(weapon: Dictionary) -> float:
 
 func get_damage_for_target(weapon: Dictionary, target: Variant = null) -> float:
 	var damage: float = get_damage_for_projectile(weapon)
+	if _is_tesla_weapon(weapon):
+		damage *= 1.0 + UpgradeManager.get_tree_effect_total("tesla_damage")
+	if target is Enemy:
+		var target_definition: Dictionary = target.definition
+		if String(target_definition.get("category", "zombie")) == "animal":
+			damage *= 1.0 + UpgradeManager.get_tree_effect_total("animal_damage")
+		if not target.mutation_stat_modifiers.is_empty():
+			damage *= 1.0 + UpgradeManager.get_tree_effect_total("evolved_damage")
+		if _is_tesla_weapon(weapon):
+			damage *= 1.0 - clampf(float(target.mutation_stat_modifiers.get("electrical_resistance", 0.0)), 0.0, 0.75)
 	var category: String = _get_target_category(target)
 	var resolved_ammo_type: String = String(weapon.get("special_ammo_type", special_ammo_type))
 	if resolved_ammo_type == "heavy" and category in ["gate", "armoury_cache", "survivor_rescue", "obstacle"]:
@@ -303,12 +325,123 @@ func _apply_post_hit_effects(weapon: Dictionary, target: Variant, damage: float)
 				run_manager.enemy_manager.damage_enemies_in_radius(target.global_position, splash_radius, damage * 0.5)
 				run_manager.ui_manager.spawn_explosion(target.global_position, splash_radius)
 				AudioManager.play_sfx("explosion")
+	match String(weapon.get("status_effect", "")):
+		"slow":
+			target.apply_slow(float(weapon.get("status_value", 0.35)), float(weapon.get("status_duration", 2.0)))
+		"burn":
+			target.apply_burn(float(weapon.get("status_value", 2.0)), float(weapon.get("status_duration", 2.0)))
+		"armour_break":
+			if target.has_method("apply_armour_break"):
+				target.apply_armour_break(float(weapon.get("status_value", 0.15)), float(weapon.get("status_duration", 3.0)))
 
 func apply_temporary_weapon(weapon_id: String, duration: float) -> void:
 	if not GameManager.weapon_data.has(weapon_id):
 		return
 	temporary_weapon_id = weapon_id
 	temporary_weapon_time = duration
+
+func set_active_weapon(weapon_id: String) -> bool:
+	if not can_use_weapon(weapon_id):
+		return false
+	current_weapon_id = weapon_id
+	temporary_weapon_id = ""
+	temporary_weapon_time = 0.0
+	weapon_changed.emit(weapon_id)
+	return true
+
+func can_use_weapon(weapon_id: String) -> bool:
+	if not GameManager.weapon_data.has(weapon_id):
+		return false
+	var definition: Dictionary = GameManager.weapon_data.get(weapon_id, {})
+	if bool(definition.get("upgrade_only", false)):
+		return UpgradeManager.has_tree_effect("tesla_unlock") or SaveManager.save_data.get("weapon_inventory", []).has(weapon_id)
+	return true
+
+func get_collectible_weapon_ids(progress: float = 0.0, exclude_current: bool = true) -> Array[String]:
+	var candidates: Array[String] = []
+	for weapon_id_variant in GameManager.weapon_data.keys():
+		var weapon_id := String(weapon_id_variant)
+		var definition: Dictionary = GameManager.weapon_data[weapon_id]
+		if not bool(definition.get("collectible", false)) or bool(definition.get("upgrade_only", false)):
+			continue
+		if exclude_current and weapon_id == get_current_weapon_id():
+			continue
+		var min_progress: float = float(definition.get("min_progress", 0.0))
+		if progress < min_progress:
+			continue
+		candidates.append(weapon_id)
+	return candidates
+
+func choose_weighted_weapon(progress: float = 0.0, excluded: Array = []) -> String:
+	var candidates := get_collectible_weapon_ids(progress, false)
+	for excluded_id in excluded:
+		candidates.erase(String(excluded_id))
+	if candidates.is_empty():
+		return "rifle"
+	var rarity_bonus: float = UpgradeManager.get_upgrade_value("loot_rarity_bonus") + (run_manager.get_route_rarity_bonus() if run_manager != null else 0.0)
+	var total := 0.0
+	for weapon_id in candidates:
+		var definition: Dictionary = GameManager.weapon_data[weapon_id]
+		var weight: float = maxf(0.01, float(definition.get("pickup_weight", 1.0)))
+		if String(definition.get("rarity", "common")) in ["rare", "legendary"]:
+			weight *= 1.0 + rarity_bonus * 4.0
+		total += weight
+	var roll := randf() * total
+	for weapon_id in candidates:
+		var definition: Dictionary = GameManager.weapon_data[weapon_id]
+		var weight: float = maxf(0.01, float(definition.get("pickup_weight", 1.0)))
+		if String(definition.get("rarity", "common")) in ["rare", "legendary"]:
+			weight *= 1.0 + rarity_bonus * 4.0
+		roll -= weight
+		if roll <= 0.0:
+			return weapon_id
+	return candidates.back()
+
+func refill_limited_ammo(amount: int, weapon_id: String = "tesla_cannon") -> int:
+	if not GameManager.weapon_data.has(weapon_id) or not bool(GameManager.weapon_data[weapon_id].get("limited_ammo", false)):
+		return 0
+	var before := int(ammo_by_weapon.get(weapon_id, 0))
+	var maximum := get_max_ammo(weapon_id)
+	ammo_by_weapon[weapon_id] = clampi(before + max(amount, 0), 0, maximum)
+	limited_ammo_changed.emit(weapon_id, int(ammo_by_weapon[weapon_id]), maximum)
+	return int(ammo_by_weapon[weapon_id]) - before
+
+func get_limited_ammo_state(weapon_id: String = "") -> Dictionary:
+	var resolved_id := weapon_id if weapon_id != "" else get_current_weapon_id()
+	var definition: Dictionary = GameManager.weapon_data.get(resolved_id, {})
+	if not bool(definition.get("limited_ammo", false)):
+		return {"weapon_id":"", "current":0, "maximum":0, "label":""}
+	return {"weapon_id":resolved_id, "current":int(ammo_by_weapon.get(resolved_id, 0)), "maximum":get_max_ammo(resolved_id), "label":String(definition.get("name", resolved_id))}
+
+func get_max_ammo(weapon_id: String) -> int:
+	var base := int(GameManager.weapon_data.get(weapon_id, {}).get("max_ammo", 0))
+	if weapon_id == "tesla_cannon":
+		base += int(round(UpgradeManager.get_tree_effect_total("tesla_max_ammo")))
+	return max(base, 0)
+
+func _initialize_limited_ammo() -> void:
+	ammo_by_weapon.clear()
+	for weapon_id_variant in GameManager.weapon_data.keys():
+		var weapon_id := String(weapon_id_variant)
+		if bool(GameManager.weapon_data[weapon_id].get("limited_ammo", false)):
+			ammo_by_weapon[weapon_id] = get_max_ammo(weapon_id) if weapon_id == current_weapon_id else 0
+
+func _consume_limited_ammo(weapon_id: String) -> bool:
+	var current := int(ammo_by_weapon.get(weapon_id, 0))
+	if current <= 0:
+		return false
+	if weapon_id == "tesla_cannon" and randf() < UpgradeManager.get_tree_effect_total("tesla_efficiency"):
+		return true
+	ammo_by_weapon[weapon_id] = max(0, current - 1)
+	limited_ammo_changed.emit(weapon_id, int(ammo_by_weapon[weapon_id]), get_max_ammo(weapon_id))
+	return true
+
+func _weapon_id_for_definition(weapon: Dictionary) -> String:
+	for weapon_id_variant in GameManager.weapon_data.keys():
+		var weapon_id := String(weapon_id_variant)
+		if String(GameManager.weapon_data[weapon_id].get("name", "")) == String(weapon.get("name", "")):
+			return weapon_id
+	return get_current_weapon_id()
 
 func unlock_next_weapon() -> void:
 	var defs: Array = GameManager.upgrade_data.get("upgrades", {}).get("starting_weapon", {}).get("choices", [])

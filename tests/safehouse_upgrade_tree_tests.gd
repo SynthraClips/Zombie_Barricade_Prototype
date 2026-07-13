@@ -36,6 +36,8 @@ func _expect(condition: bool, label: String) -> void:
 func _reset_progress(coins: int = 0) -> void:
 	SaveManager.save_data = SaveManager._default_save_data()
 	SaveManager.save_data["banked_coins"] = coins
+	SaveManager.save_data["supplies"] = coins
+	SaveManager.save_data["survivors"] = coins
 	for upgrade_id in UpgradeManager.upgrade_defs:
 		SaveManager.save_data["upgrades"][upgrade_id] = 0
 	UpgradeManager.purchase_in_progress = false
@@ -96,12 +98,12 @@ func _test_purchase_rules() -> void:
 	SaveManager.save_data["banked_coins"] = 0
 	_expect(not UpgradeManager.can_purchase_tree_upgrade(first), "unaffordable upgrade cannot be purchased")
 	SaveManager.save_data["banked_coins"] = 1000
-	var before := int(SaveManager.save_data["banked_coins"])
+	var before_coins := int(SaveManager.save_data["banked_coins"])
 	_expect(UpgradeManager.purchase_tree_upgrade(first), "purchase transaction succeeds")
-	var cost := int(UpgradeManager.get_tree_definition(first)["cost"])
-	_expect(int(SaveManager.save_data["banked_coins"]) == before - cost, "currency is deducted exactly once")
+	var costs: Dictionary = UpgradeManager.get_tree_costs(first)
+	_expect(int(SaveManager.save_data["banked_coins"]) == before_coins - int(costs.get("coins", 0)), "mixed resources are deducted exactly once")
 	_expect(not UpgradeManager.purchase_tree_upgrade(first), "duplicate purchase is blocked")
-	_expect(int(SaveManager.save_data["banked_coins"]) == before - cost, "rapid repeated confirmation cannot double charge")
+	_expect(int(SaveManager.save_data["banked_coins"]) == before_coins - int(costs.get("coins", 0)), "rapid repeated confirmation cannot double charge")
 	_expect(UpgradeManager.can_purchase_tree_upgrade(dependent), "purchase unlocks dependent node")
 
 func _test_save_and_migration() -> void:
@@ -170,7 +172,7 @@ func _test_main_menu_save_display() -> void:
 	get_tree().root.add_child(menu)
 	await get_tree().process_frame
 	var bank: Label = menu.get_node("Layout/RootRow/MainCard/CardMargin/CardVBox/Stats/Bank")
-	_expect(bank.text == "Saved Coins: 777", "main menu displays authoritative saved currency after startup")
+	_expect(bank.text.find("Coins 777") >= 0 and bank.text.find("Supplies 777") >= 0 and bank.text.find("Survivors 777") >= 0, "main menu displays all authoritative progression resources after startup")
 	menu.queue_free()
 	await get_tree().process_frame
 

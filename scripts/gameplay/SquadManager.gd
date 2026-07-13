@@ -130,8 +130,9 @@ func _apply_formation(snap: bool = false) -> void:
 	var estimated_soldier_width := 24.0
 	var max_center_span: float = max(0.0, gate_width * 0.9 - estimated_soldier_width)
 	var columns: int = mini(6, maxi(1, ceili(sqrt(float(count)))))
-	var spacing_x: float = min(18.0, max_center_span / float(maxi(columns - 1, 1)))
-	var spacing_y := 22.0
+	var density_multiplier := clampf(1.0 - UpgradeManager.get_tree_effect_total("formation_density"), 0.7, 1.0)
+	var spacing_x: float = min(18.0, max_center_span / float(maxi(columns - 1, 1))) * density_multiplier
+	var spacing_y := 22.0 * density_multiplier
 	var width: float = float(maxi(columns - 1, 0)) * spacing_x
 	for i in range(count):
 		var soldier: Node = soldiers[i]

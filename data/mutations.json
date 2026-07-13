@@ -24,6 +24,20 @@
       "allowed_mutations": ["runner_surge", "armoured_horde", "spitter_swarm", "exploder_panic", "tank_push"]
     }
   ],
+  "evolution_settings": {"enabled":true,"start_distance":145.0,"distance_interval":155.0,"max_active":5},
+  "evolution_nodes": {
+    "thick_hide":{"label":"Thick Hide","family":"physical","weight":1.2,"min_progress":0.12,"enemy_stat_modifiers":{"hp_multiplier":1.14},"affected_categories":["zombie","animal"],"reward_multiplier":1.02},
+    "bone_armour":{"label":"Bone Armour","family":"physical","weight":0.8,"min_progress":0.34,"prerequisite_ids":["thick_hide"],"enemy_stat_modifiers":{"hp_multiplier":1.18},"affected_categories":["zombie"],"reward_multiplier":1.03},
+    "regeneration":{"label":"Regeneration","family":"physical","weight":0.45,"min_progress":0.62,"prerequisite_ids":["thick_hide"],"enemy_stat_modifiers":{"regeneration_per_second":0.8},"affected_categories":["zombie","boss"],"reward_multiplier":1.04},
+    "fleet_footed":{"label":"Fleet Footed","family":"movement","weight":1.1,"min_progress":0.16,"enemy_stat_modifiers":{"speed_multiplier":1.1},"affected_categories":["zombie","animal"],"reward_multiplier":1.02},
+    "lane_hunters":{"label":"Lane Hunters","family":"movement","weight":0.8,"min_progress":0.36,"prerequisite_ids":["fleet_footed"],"spawn_weight_modifiers":{"mutated_dog":1.8,"carrion_bird":1.6},"enemy_stat_modifiers":{"speed_multiplier":1.06},"affected_categories":["animal"],"reward_multiplier":1.03},
+    "siege_claws":{"label":"Siege Claws","family":"offensive","weight":0.9,"min_progress":0.28,"enemy_stat_modifiers":{"damage_multiplier":1.13},"affected_categories":["zombie","animal"],"reward_multiplier":1.03},
+    "volatile_blood":{"label":"Volatile Blood","family":"offensive","weight":0.55,"min_progress":0.48,"spawn_weight_modifiers":{"exploder":1.7},"enemy_stat_modifiers":{"damage_multiplier":1.08},"affected_categories":["zombie"],"incompatible_ids":["regeneration"],"reward_multiplier":1.04},
+    "bullet_resistance":{"label":"Bullet Resistance","family":"resistance","weight":0.65,"min_progress":0.44,"enemy_stat_modifiers":{"hp_multiplier":1.1},"affected_categories":["zombie","boss"],"reward_multiplier":1.04},
+    "electrical_resistance":{"label":"Electrical Resistance","family":"resistance","weight":0.55,"min_progress":0.55,"enemy_stat_modifiers":{"electrical_resistance":0.18},"affected_categories":["zombie","animal","boss"],"reward_multiplier":1.04},
+    "pack_leaders":{"label":"Pack Leaders","family":"pack","weight":0.75,"min_progress":0.32,"spawn_weight_modifiers":{"screamer":1.7,"mutated_bear":1.35},"enemy_stat_modifiers":{"hp_multiplier":1.06},"affected_categories":["zombie","animal"],"reward_multiplier":1.03},
+    "horde_density":{"label":"Horde Density","family":"pack","weight":0.5,"min_progress":0.58,"prerequisite_ids":["pack_leaders"],"spawn_weight_modifiers":{"walker":1.5,"runner":1.35,"rat_swarm":1.5},"enemy_stat_modifiers":{},"reward_multiplier":1.04}
+  },
   "mutations": {
     "runner_surge": {
       "id": "runner_surge",

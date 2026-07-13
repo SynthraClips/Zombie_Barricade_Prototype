@@ -9,6 +9,11 @@ var current_value := 0
 var pulse := 0.0
 var collected := false
 var damage_progress := 0.0
+var weapon_changes := 0
+var weapon_change_cooldown := 0.0
+var weapon_transition_time := 0.0
+var displayed_weapon_id := ""
+var weapon_texture: Texture2D
 
 func initialize(run: Node, manager: Node, effect: Dictionary, world_position: Vector2, gate_row_id: int = 0) -> void:
 	run_manager = run
@@ -17,6 +22,11 @@ func initialize(run: Node, manager: Node, effect: Dictionary, world_position: Ve
 	row_id = gate_row_id
 	current_value = int(effect_definition.get("start_value", 0))
 	damage_progress = 0.0
+	weapon_changes = 0
+	weapon_change_cooldown = 0.0
+	weapon_transition_time = 0.0
+	displayed_weapon_id = ""
+	_refresh_weapon_texture()
 	collected = false
 	global_position = world_position
 	# Gates remain Areas for projectile/world queries, but selection is exclusively
@@ -30,6 +40,8 @@ func update_gate(delta: float) -> void:
 	if collected:
 		return
 	pulse += delta * 4.0
+	weapon_change_cooldown = max(weapon_change_cooldown - delta, 0.0)
+	weapon_transition_time = max(weapon_transition_time - delta, 0.0)
 	global_position += Vector2.DOWN * run_manager.scroll_speed * delta
 	queue_redraw()
 	var anchor: Vector2 = run_manager.squad_manager.get_anchor_position()
@@ -46,6 +58,8 @@ func take_damage(_amount: float, _explosive_hit: bool = false) -> void:
 	if collected:
 		return
 	var damage: float = max(_amount, 0.0)
+	if String(effect_definition.get("type", "")) == "weapon_pickup" and weapon_change_cooldown > 0.0:
+		return
 	var step_damage: float = gate_manager.get_damage_per_value_step(effect_definition)
 	effect_definition["damage_per_value_step"] = step_damage
 	damage_progress += damage
@@ -81,6 +95,7 @@ func get_effect_definition() -> Dictionary:
 	return effect_definition.duplicate(true)
 
 func _draw() -> void:
+	_refresh_weapon_texture()
 	var base_color := _get_gate_color()
 	var outline: Color = base_color.lightened(0.15)
 	var half_width: float = float(GameManager.gate_data.get("gate_width", 120.0)) * 0.5
@@ -94,7 +109,12 @@ func _draw() -> void:
 	draw_rect(Rect2(-34, 34, 68, 10), Color(0.08, 0.08, 0.08, 0.75))
 	draw_rect(Rect2(-34, 34, 68.0 * progress_ratio, 10), Color.WHITE if progress_ratio >= 0.98 else outline)
 	draw_rect(Rect2(-34, 34, 68, 10), outline, false, 2.0)
-	draw_string(ThemeDB.fallback_font, Vector2(-44, -70), _format_value_label(), HORIZONTAL_ALIGNMENT_LEFT, 96, 18, Color.WHITE)
+	draw_string(ThemeDB.fallback_font, Vector2(-half_width, -70), _format_value_label().left(18), HORIZONTAL_ALIGNMENT_CENTER, half_width * 2.0, 13, Color.WHITE)
+	if weapon_texture != null:
+		var transition_duration: float = maxf(0.01, float(GameManager.gate_data.get("weapon_gate", {}).get("change_cooldown", 0.35)))
+		var transition_progress: float = 1.0 - clampf(weapon_transition_time / transition_duration, 0.0, 1.0)
+		var icon_scale: float = lerpf(0.72, 1.0, transition_progress)
+		draw_texture_rect(weapon_texture, Rect2(-32.0 * icon_scale, -16.0 * icon_scale, 64.0 * icon_scale, 32.0 * icon_scale), false, Color(1.0, 1.0, 1.0, lerpf(0.35, 1.0, transition_progress)))
 
 func _format_value_label() -> String:
 	return gate_manager.format_gate_label(effect_definition)
@@ -123,15 +143,34 @@ func _apply_improvement_step() -> bool:
 			effect_definition["label"] = gate_manager.format_gate_label(effect_definition)
 			effect_definition["color"] = "#ffd166" if next_value == 0 else "#ff8080"
 			return true
-		"multiply_soldiers", "coins", "heal_soldiers", "barricade_repair":
+		"multiply_soldiers", "coins", "supplies", "survivors", "tesla_ammo", "heal_soldiers", "barricade_repair", "add_role_soldier":
 			effect_definition["value"] = int(effect_definition.get("value", 0)) + int(effect_definition.get("improvement_step", 1))
 		"barricade_cooldown_reset":
 			return false
 		"fire_rate_boost", "damage_boost", "temporary_shield":
 			effect_definition["value"] = float(effect_definition.get("value", 0.0)) + float(effect_definition.get("improvement_step", 0.0))
-		"weapon_pickup", "risk_gate":
+		"weapon_pickup":
+			var max_changes := int(GameManager.gate_data.get("weapon_gate", {}).get("max_changes", 4))
+			if weapon_changes >= max_changes or not gate_manager.cycle_weapon_offer(effect_definition):
+				return false
+			weapon_changes += 1
+			weapon_change_cooldown = float(GameManager.gate_data.get("weapon_gate", {}).get("change_cooldown", 0.35))
+			weapon_transition_time = weapon_change_cooldown
+			return true
+		"risk_gate":
 			return false
 		_:
 			return false
 	effect_definition["label"] = gate_manager.format_gate_label(effect_definition)
 	return true
+
+func _refresh_weapon_texture() -> void:
+	if String(effect_definition.get("type", "")) != "weapon_pickup":
+		weapon_texture = null
+		return
+	var weapon_id := String(effect_definition.get("weapon_id", ""))
+	if weapon_id == displayed_weapon_id:
+		return
+	displayed_weapon_id = weapon_id
+	var icon_path := String(GameManager.weapon_data.get(weapon_id, {}).get("icon", ""))
+	weapon_texture = load(icon_path) if icon_path != "" and ResourceLoader.exists(icon_path) else null

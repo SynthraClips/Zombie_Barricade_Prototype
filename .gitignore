@@ -15,6 +15,13 @@ tests/computer_use/logs/
 reports/temp/
 reports/*.tmp
 reports/safehouse_tree_screenshots/*.import
+*.import
+.godot-*/
+.test_appdata*/
+.yggdrasil-source-*/
+reports/*_stdout.txt
+reports/*_stderr.txt
+reports/probe_*.txt
 *.log
 *.tmp
 

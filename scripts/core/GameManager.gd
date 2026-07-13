@@ -17,6 +17,7 @@ var reward_data: Dictionary = {}
 var gate_data: Dictionary = {}
 var mission_data: Dictionary = {}
 var upgrade_data: Dictionary = {}
+var environment_data: Dictionary = {}
 
 var current_run_summary: Dictionary = {}
 var last_run_victory: bool = false
@@ -46,6 +47,7 @@ func _load_all_data() -> void:
 	gate_data = DataRepository.load_json(DATA_ROOT + "gates.json", {})
 	mission_data = DataRepository.load_json(DATA_ROOT + "missions.json", {})
 	upgrade_data = DataRepository.load_json(DATA_ROOT + "upgrades.json", {})
+	environment_data = DataRepository.load_json(DATA_ROOT + "environments.json", {})
 	data_loaded.emit()
 
 func _ensure_input_actions() -> void:
@@ -89,7 +91,9 @@ func end_run(victory: bool, summary: Dictionary) -> void:
 			current_run_summary["coins_earned"] = int(scene_coins)
 	var report_bonus_multiplier: float = 1.0 + UpgradeManager.get_upgrade_value("report_reward_bonus")
 	var coins_earned: int = int(current_run_summary.get("coins_earned", 0) * float(game_config.get("run_coin_keep_ratio", 1.0)) * report_bonus_multiplier)
-	SaveManager.add_banked_coins(coins_earned)
+	var supplies_earned: int = maxi(0, int(current_run_summary.get("supplies_earned", 0)))
+	var survivors_earned: int = maxi(0, int(current_run_summary.get("survivors_earned", 0)))
+	SaveManager.add_progression_resources(coins_earned, supplies_earned, survivors_earned)
 	MissionManager.register_run_summary(current_run_summary)
 	var stats: Dictionary = SaveManager.save_data.get("stats", {})
 	var distance: int = int(summary.get("distance", 0))
@@ -106,6 +110,11 @@ func end_run(victory: bool, summary: Dictionary) -> void:
 	stats["total_bosses_defeated"] = int(stats.get("total_bosses_defeated", 0)) + bosses
 	stats["total_soldiers_rescued"] = int(stats.get("total_soldiers_rescued", 0)) + rescued
 	stats["total_pickups_collected"] = int(stats.get("total_pickups_collected", 0)) + pickups
+	stats["total_supplies_collected"] = int(stats.get("total_supplies_collected", 0)) + supplies_earned
+	stats["total_survivors_rescued"] = int(stats.get("total_survivors_rescued", 0)) + survivors_earned
+	stats["total_night_sections"] = int(stats.get("total_night_sections", 0)) + int(summary.get("night_sections", 0))
+	stats["total_hero_uses"] = int(stats.get("total_hero_uses", 0)) + int(summary.get("hero_uses", 0))
+	stats["total_hero_ultimates"] = int(stats.get("total_hero_ultimates", 0)) + int(summary.get("hero_ultimates", 0))
 	stats["total_gates_chosen"] = int(stats.get("total_gates_chosen", 0)) + gates
 	stats["best_run_score"] = max(int(stats.get("best_run_score", 0)), score)
 	if victory:
@@ -138,6 +147,8 @@ func get_starting_soldier_count() -> int:
 
 func get_starting_weapon_id() -> String:
 	var choice: String = UpgradeManager.get_choice_value("starting_weapon")
+	if choice == "tesla_cannon" and not UpgradeManager.has_tree_effect("tesla_unlock"):
+		choice = "rifle"
 	if choice != "" and weapon_data.has(choice):
 		return choice
 	var configured: String = String(game_config.get("starting_weapon", "rifle"))

@@ -26,8 +26,12 @@ static func validate(definitions: Dictionary) -> Array[String]:
 		elif ids.has(id):
 			errors.append("Duplicate upgrade id: %s" % id)
 		ids[id] = true
-		if int(node.get("cost", -1)) < 0:
+		var costs: Dictionary = node.get("costs", {})
+		if costs.is_empty() and int(node.get("cost", -1)) < 0:
 			errors.append("Negative cost: %s" % id)
+		for resource_id in ["coins", "supplies", "survivors"]:
+			if int(costs.get(resource_id, 0)) < 0:
+				errors.append("Negative %s cost: %s" % [resource_id, id])
 		if not VALID_EFFECT_TYPES.has(String(node.get("effect_type", ""))):
 			errors.append("Unknown effect type for %s: %s" % [id, node.get("effect_type", "")])
 		if not node.has("enabled"):

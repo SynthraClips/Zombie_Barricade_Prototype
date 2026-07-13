@@ -1,177 +1,204 @@
 # Zombie Barricade Prototype Validation Report
 
-- Date: 2026-07-13T11:38:55
-- Passed: 169
+- Date: 2026-07-13T17:22:43
+- Passed: 196
 - Failed: 0
 
 - Zombie Barricade Prototype Validation
 
-- [PASS] Required project files exist 
-- [PASS] Enemy data loads (13 entries)
-- [PASS] Weapon data loads (7 entries)
+- [PASS] Required project files exist
+- [PASS] Enemy data loads (23 entries)
+- [PASS] Weapon data loads (13 entries)
 - [PASS] Barricade data loads (8 entries)
-- [PASS] Wave data loads 
-- [PASS] Mutation data loads 
-- [PASS] Reward data loads 
-- [PASS] Gate data loads 
-- [PASS] Mission data loads 
-- [PASS] Upgrade data loads 
-- [PASS] Wave enemy references are valid 
-- [PASS] Mutation references are valid 
-- [PASS] Reward and gate references are valid 
-- [PASS] Road object references are valid 
-- [PASS] Mission target types are valid 
-- [PASS] Upgrade costs and choice references are valid 
-- [PASS] Boss data is valid 
-- [PASS] Route types exist 
-- [PASS] Run modifiers exist 
-- [PASS] Horde pressure config is valid 
-- [PASS] Main menu loads 
-- [PASS] Main menu buttons exist 
-- [PASS] Battlefield scene loads 
-- [PASS] Deploy barricade input action exists 
-- [PASS] Call hero input action exists 
-- [PASS] Hero ultimate input action exists 
-- [PASS] Gameplay shortcuts use B, H, and U 
-- [PASS] HUD action buttons and start hint exist 
-- [PASS] Barricade control request triggers deploy path 
-- [PASS] Hero control request triggers call-in path 
-- [PASS] Ultimate control request triggers ultimate path 
-- [PASS] HUD and keyboard share control request methods 
+- [PASS] Wave data loads
+- [PASS] Mutation data loads
+- [PASS] Reward data loads
+- [PASS] Gate data loads
+- [PASS] Mission data loads
+- [PASS] Upgrade data loads
+- [PASS] Environment data loads
+- [PASS] Wave enemy references are valid
+- [PASS] Mutation references are valid
+- [PASS] Reward and gate references are valid
+- [PASS] Road object references are valid
+- [PASS] Mission target types are valid
+- [PASS] Upgrade costs and choice references are valid
+- [PASS] Boss data is valid
+- [PASS] Route types exist
+- [PASS] Run modifiers exist
+- [PASS] Horde pressure config is valid
+- [PASS] Mutated animal definitions and placeholders are configured
+- [PASS] Route boss roster and unique behaviours are configured
+- [PASS] Expanded weapon roster has replaceable icons
+- [PASS] Tesla is upgrade-only with bounded limited ammunition
+- [PASS] Zombie Evolution Tree covers five data-driven families
+- [PASS] Roadside buildings are modular event anchors
+- [PASS] Night sections have transition, lighting, spacing, duration, and spawn weighting
+- [PASS] Expanded heroes have shared data, ultimates, and visible placeholders
+- [PASS] Expanded data-driven gate categories are available
+- [PASS] Positive gate growth and weapon rerolls are capped
+- [PASS] Permanent progression is substantially slower and uses mixed resources
+- [PASS] Save migration defaults cover new progression and report fields
+- [PASS] Main menu loads
+- [PASS] Main menu buttons exist
+- [PASS] Battlefield scene loads
+- [PASS] Deploy barricade input action exists
+- [PASS] Call hero input action exists
+- [PASS] Hero ultimate input action exists
+- [PASS] Gameplay shortcuts use B, H, and U
+- [PASS] HUD action buttons and start hint exist
+- [PASS] Barricade control request triggers deploy path
+- [PASS] Hero control request triggers call-in path
+- [PASS] Ultimate control request triggers ultimate path
+- [PASS] HUD and keyboard share control request methods
 - [PASS] Squad spawns (count=3)
-- [PASS] Barricade deploys at run start 
-- [PASS] Distance counter increases 
-- [PASS] Soldiers damage zombies (weapon=rifle dmg=-1.00 raw=9.0 target_enemy=false hp_after=-1.00 direct_before=-1.00 direct_after=-1.00 manual_after=-1.00 soldiers=3)
-- [PASS] Zombies can die (kills=2)
-- [PASS] Coins are awarded (coins=8)
-- [PASS] Rewards can spawn from obstacles 
-- [PASS] Mission progress updates 
-- [PASS] Barricade damage path works (before=84.40 after=77.00)
-- [PASS] Barricade can be destroyed 
-- [PASS] Mutation can start during a run 
-- [PASS] HUD shows active mutation and timer 
-- [PASS] Only allowed mutations are selected 
-- [PASS] Mutation applies spawn weight modifier 
-- [PASS] Enemy spawning returns to normal after mutation 
-- [PASS] Mutation applies enemy stat modifier 
-- [PASS] Mutation expiry resets enemy stats 
-- [PASS] Mutation expires 
-- [PASS] HUD clears after mutation expires 
-- [PASS] Mutation state clears on run reset/game over 
-- [PASS] Horde pressure starts from config value 
-- [PASS] HUD shows horde pressure 
-- [PASS] Horde pressure increases during a run 
-- [PASS] Horde pressure increases runner spawn weight 
+- [PASS] Barricade deploys at run start
+- [PASS] Distance counter increases
+- [PASS] Soldiers damage zombies (weapon=rifle dmg=-1.00 raw=8.0 target_enemy=false hp_after=-1.00 direct_before=-1.00 direct_after=-1.00 manual_after=-1.00 soldiers=3)
+- [PASS] Zombies can die (kills=1)
+- [PASS] Coins are awarded (coins=1)
+- [PASS] Rewards can spawn from obstacles
+- [PASS] Mission progress updates
+- [PASS] Barricade damage path works (before=90.00 after=82.60)
+- [PASS] Barricade can be destroyed
+- [PASS] Mutation can start during a run
+- [PASS] HUD shows active mutation and timer
+- [PASS] Only allowed mutations are selected
+- [PASS] Mutation applies spawn weight modifier
+- [PASS] Enemy spawning returns to normal after mutation
+- [PASS] Mutation applies enemy stat modifier
+- [PASS] Mutation expiry resets enemy stats
+- [PASS] Mutation expires
+- [PASS] HUD clears after mutation expires
+- [PASS] Mutation state clears on run reset/game over
+- [PASS] Horde pressure starts from config value
+- [PASS] HUD shows horde pressure
+- [PASS] Horde pressure increases during a run
+- [PASS] Horde pressure increases runner spawn weight
 - [PASS] Horde pressure increases reward multiplier (mult=1.40)
-- [PASS] Successful events can reduce horde pressure 
-- [PASS] Horde pressure clears on reset/game over 
-- [PASS] Squad follows mouse X position 
-- [PASS] Squad remains clamped inside road bounds 
-- [PASS] Gate rows contain one to three non-overlapping choices 
-- [PASS] Gate value does not increase from tiny damage if below threshold 
-- [PASS] Projectile damage can improve gates 
-- [PASS] Later gates can require more damage to improve 
-- [PASS] Stronger projectile damage improves gates faster 
-- [PASS] Gate value does not exceed max value 
-- [PASS] Positive soldier gate adds soldiers 
-- [PASS] Choosing one gate clears the row 
+- [PASS] Successful events can reduce horde pressure
+- [PASS] Horde pressure clears on reset/game over
+- [PASS] Squad follows mouse X position
+- [PASS] Squad remains clamped inside road bounds
+- [PASS] Gate rows contain one to three non-overlapping choices
+- [PASS] Gate value does not increase from tiny damage if below threshold
+- [PASS] Projectile damage can improve gates
+- [PASS] Later gates can require more damage to improve
+- [PASS] Stronger projectile damage improves gates faster
+- [PASS] Gate value does not exceed max value
+- [PASS] Positive soldier gate adds soldiers
+- [PASS] Choosing one gate clears the row
 - [PASS] Negative gate removes soldiers but not below 1 (count=1)
-- [PASS] Gate encounters continue at max squad cap 
+- [PASS] Gate encounters continue at max squad cap
 - [PASS] Pickup magnet pulls reward towards squad (start=110.00 moved=0.00 valid=false running=true)
 - [PASS] Field pickup applies reward (bonus=0.40)
 - [PASS] Pickup collects and disappears (rewards=0 children=0)
-- [PASS] Pickup manager has no stale references after collection 
-- [PASS] Pickup cannot be collected twice (before=0 after=8)
+- [PASS] Pickup manager has no stale references after collection
+- [PASS] Pickup cannot be collected twice (before=0 after=2)
 - [PASS] Normal soldier add respects max squad limit if appropriate (add=0 count=4)
 - [PASS] Soldier pickup can exceed max squad limit (count=5)
 - [PASS] Squad count HUD/state reflects overcap value (label=Squad: 5)
 - [PASS] Removing soldiers from overcap works correctly (removed=2 count=3)
 - [PASS] Run reset clears squad back to correct starting size (count=3 expected=3)
 - [PASS] Boss collectible extends run distance (target=310.0 initial=220.0 rewards=0)
-- [PASS] Each road object type can spawn 
-- [PASS] Each road object type can be damaged 
-- [PASS] At least one road object type appears during normal runs 
-- [PASS] Fuel barrel damages nearby zombies 
-- [PASS] Road objects unregister on destruction 
+- [PASS] Each road object type can spawn
+- [PASS] Each road object type can be damaged
+- [PASS] At least one road object type appears during normal runs
+- [PASS] Fuel barrel damages nearby zombies
+- [PASS] Road objects unregister on destruction
 - [PASS] Alarm car triggers extra zombies on timeout (before=0 after=4 alive=false)
-- [PASS] Alarm car does not trigger if destroyed in time 
-- [PASS] Electric box applies stun/slow 
-- [PASS] Road objects clear on run reset 
-- [PASS] Each special ammo pickup can be applied 
-- [PASS] Repeated ammo pickup refreshes duration sensibly 
-- [PASS] Ammo state expires 
-- [PASS] HUD/state clears on expiry 
-- [PASS] Piercing rounds can hit extra enemies 
-- [PASS] Explosive rounds apply splash damage 
-- [PASS] Heavy rounds increase damage against gates/high-HP targets 
-- [PASS] Ammo state clears on run reset/game over 
-- [PASS] Armoury cache spawns 
-- [PASS] Armoury cache stops before barricade safe zone 
-- [PASS] Armoury cache is not collected by touch 
-- [PASS] Projectiles can damage armoury cache 
-- [PASS] Armoury cache rewards once when destroyed 
-- [PASS] Armoury cache does not double-reward on destruction 
-- [PASS] Armoury cache unregisters on destruction 
-- [PASS] Armoury cache does not reward on expiry 
-- [PASS] Armoury cache unregisters on expiry 
-- [PASS] Survivor rescue event can spawn 
-- [PASS] Survivor rescue stops before barricade safe zone 
-- [PASS] Survivor rescue is not collected by touch 
-- [PASS] Projectiles can damage survivor rescue 
-- [PASS] Survivor rescue success grants soldiers once 
-- [PASS] Survivor rescue cannot double-reward 
-- [PASS] Survivor rescue despawns on success 
-- [PASS] Survivor rescue can exceed max squad limit if using pickup/rescue reward path 
-- [PASS] Squad does not break when over max 
-- [PASS] Survivor rescue failure grants no soldiers 
-- [PASS] Survivor rescue despawns on timer expiry 
-- [PASS] Manual fire stays idle when auto-fire is disabled 
+- [PASS] Alarm car does not trigger if destroyed in time
+- [PASS] Electric box applies stun/slow
+- [PASS] Road objects clear on run reset
+- [PASS] Each special ammo pickup can be applied
+- [PASS] Repeated ammo pickup refreshes duration sensibly
+- [PASS] Ammo state expires
+- [PASS] HUD/state clears on expiry
+- [PASS] Piercing rounds can hit extra enemies
+- [PASS] Explosive rounds apply splash damage
+- [PASS] Heavy rounds increase damage against gates/high-HP targets
+- [PASS] Ammo state clears on run reset/game over
+- [PASS] Armoury cache spawns
+- [PASS] Armoury cache stops before barricade safe zone
+- [PASS] Armoury cache is not collected by touch
+- [PASS] Projectiles can damage armoury cache
+- [PASS] Armoury cache rewards once when destroyed
+- [PASS] Armoury cache does not double-reward on destruction
+- [PASS] Armoury cache unregisters on destruction
+- [PASS] Armoury cache does not reward on expiry
+- [PASS] Armoury cache unregisters on expiry
+- [PASS] Survivor rescue event can spawn
+- [PASS] Survivor rescue stops before barricade safe zone
+- [PASS] Survivor rescue is not collected by touch
+- [PASS] Projectiles can damage survivor rescue
+- [PASS] Survivor rescue success grants soldiers once
+- [PASS] Survivor rescue cannot double-reward
+- [PASS] Survivor rescue despawns on success
+- [PASS] Survivor rescue can exceed max squad limit if using pickup/rescue reward path
+- [PASS] Squad does not break when over max
+- [PASS] Survivor rescue failure grants no soldiers
+- [PASS] Survivor rescue despawns on timer expiry
+- [PASS] Manual fire stays idle when auto-fire is disabled
 - [PASS] Hold-to-fire still works when auto-fire is disabled (before=6.25 after=-1.00)
-- [PASS] Auto-fire does not fire while paused 
-- [PASS] Basic walker loads the goblin sprite 
+- [PASS] Auto-fire does not fire while paused
+- [PASS] Basic walker loads the goblin sprite
 - [PASS] Auto-fire fires without holding input (hp=-1.00 max=-1.00)
-- [PASS] Auto-fire does not fire after game over 
-- [PASS] Tesla auto-fire rejects targets beyond its effective range (range=660.0 distance=700.0)
-- [PASS] Tesla range upgrades remain capped 
-- [PASS] Tesla chain jumps obey the configured jump distance (jump_range=140.0 targets=2)
-- [PASS] Auto-fire does not break gate targeting (before=-4 after=-1 progress=0.00 target=Gate auto=true fire=true role=rifleman weapon=Tesla Cannon rate=4.00 squad_rate=1.00 cooldowns=[0.08, 0.08, 0.08])
-- [PASS] Auto-fire does not break obstacle targeting (before=40.00 after=-1.00 target=none auto=true fire=true role=rifleman weapon=Tesla Cannon rate=4.00 squad_rate=1.00 cooldowns=[-0.43, -0.43, -0.69])
-- [PASS] Boss defeat opens route choice once 
-- [PASS] Extract Now ends and banks run once (before=4 after=44 running=false)
-- [PASS] Choice cannot be selected twice 
-- [PASS] Push Forward extends route and applies reward modifier 
-- [PASS] Push Forward increases difficulty 
-- [PASS] Route choice state clears on reset 
-- [PASS] Required barricade types exist 
-- [PASS] Each enemy type can spawn 
-- [PASS] Each barricade type can spawn 
+- [PASS] Auto-fire does not fire after game over
+- [PASS] Tesla auto-fire rejects targets beyond its effective range (range=560.0 distance=600.0)
+- [PASS] Tesla range upgrades remain capped
+- [PASS] Tesla chain jumps obey the configured jump distance (jump_range=125.0 targets=2)
+- [PASS] Auto-fire does not break gate targeting (before=-4 after=-3 progress=22.00 target=Gate auto=true fire=true role=rifleman weapon=Assault Rifle rate=2.70 squad_rate=1.00 cooldowns=[0.12, 0.01, 0.01])
+- [PASS] Auto-fire does not break obstacle targeting (before=40.00 after=-1.00 target=none auto=true fire=true role=rifleman weapon=Assault Rifle rate=2.70 squad_rate=1.00 cooldowns=[0.12, 0.01, 0.01])
+- [PASS] Boss defeat opens route choice once
+- [PASS] Extract Now ends and banks run once (before=0 after=12 running=false)
+- [PASS] Choice cannot be selected twice
+- [PASS] Push Forward extends route and applies reward modifier
+- [PASS] Push Forward increases difficulty
+- [PASS] Route choice state clears on reset
+- [PASS] Required barricade types exist
+- [PASS] Each enemy type can spawn
+- [PASS] Each barricade type can spawn
 - [PASS] Barricade cooldown works (cooldown=8.56)
-- [PASS] Main menu buttons are present 
-- [PASS] Upgrade screen loads 
-- [PASS] Mission screen loads 
-- [PASS] Settings screen loads 
-- [PASS] Settings documents gameplay controls 
-- [PASS] Save data loads with missing fields 
-- [PASS] Corrupted save fallback works 
-- [PASS] Run can populate managers before reset 
-- [PASS] No active gates/rewards/enemies remain after reset 
-- [PASS] Game over can trigger 
-- [PASS] Win condition can trigger 
-- [PASS] Upgrades save/load 
-- [PASS] Expanded save stats exist 
-- [PASS] Daily challenge context is stable for same date 
-- [PASS] Daily challenge changes across dates 
-- [PASS] Tesla Cannon range stays useful and screen-bounded 
-- [PASS] Hero roster and upgrades are configured 
-- [PASS] Soldier class roster resolves weapon overrides 
-- [PASS] Expanded enemy variants are configured 
+- [PASS] Main menu buttons are present
+- [PASS] Upgrade screen loads
+- [PASS] Mission screen loads
+- [PASS] Settings screen loads
+- [PASS] Settings documents gameplay controls
+- [PASS] Save data loads with missing fields
+- [PASS] Corrupted save fallback works
+- [PASS] Run can populate managers before reset
+- [PASS] No active gates/rewards/enemies remain after reset
+- [PASS] Game over can trigger
+- [PASS] Win condition can trigger
+- [PASS] Upgrades save/load
+- [PASS] Expanded save stats exist
+- [PASS] Daily challenge context is stable for same date
+- [PASS] Daily challenge changes across dates
+- [PASS] Tesla Cannon range stays useful and screen-bounded
+- [PASS] Hero roster and upgrades are configured
+- [PASS] Soldier class roster resolves weapon overrides
+- [PASS] Expanded enemy variants are configured
 - [PASS] Repeatable mission can be claimed safely (claimed=true progress=0 pending=false claimed_count=1)
-- [PASS] Route type applies to HUD 
-- [PASS] Run modifier applies to report state 
-- [PASS] Projectile weapons spawn their configured moving shots 
-- [PASS] Selected hero can be called in 
-- [PASS] Offensive hero ultimate damages nearby enemies 
-- [PASS] Mini objectives advance and complete from pickups 
-- [PASS] Named specialist unlock applies its run bonus 
-- [PASS] Rare reward feedback is preserved 
-- [PASS] Report card can open with expanded summary 
+- [PASS] Random weapon pickups exclude upgrade-only weapons
+- [PASS] Physical weapon pickups expose the offered weapon label and icon
+- [PASS] Shooting a weapon gate changes its visible valid offer
+- [PASS] Weapon gate awards its final displayed weapon
+- [PASS] Night road sections activate with gameplay spawn weighting
+- [PASS] Day-to-night lighting blends gradually
+- [PASS] Animal and boss spawn lane begins safely above the squad
+- [PASS] Night and building placeholder textures load into the road renderer
+- [PASS] Roadside buildings spawn off-road on either side
+- [PASS] Building and optional-route bosses use shared spacing rules
+- [PASS] Zombie Evolution Tree activates a valid weighted mutation
+- [PASS] Mutation research resistance reduces special-enemy damage
+- [PASS] Tesla requires progression and cannot fire infinitely
+- [PASS] Route type applies to HUD
+- [PASS] Run modifier applies to report state
+- [PASS] Projectile weapons spawn their configured moving shots
+- [PASS] Selected hero can be called in
+- [PASS] Offensive hero ultimate damages nearby enemies
+- [PASS] Mini objectives advance and complete from pickups
+- [PASS] Named specialist unlock applies its run bonus
+- [PASS] Rare reward feedback is preserved
+- [PASS] Boss-specific rewards are awarded exactly once
+- [PASS] Report card can open with expanded summary

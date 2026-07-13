@@ -11,11 +11,16 @@ var collect_radius := 72.0
 var magnet_speed := 420.0
 var display_scale := 1.0
 var magnet_trail_time := 0.0
+var icon_texture: Texture2D
 
 func initialize(run: Node, id: String, world_position: Vector2) -> void:
 	run_manager = run
 	reward_id = id
-	reward_def = GameManager.reward_data.get("rewards", {}).get(reward_id, {})
+	reward_def = run_manager.reward_manager.get_reward_definition(reward_id)
+	icon_texture = null
+	var icon_path := String(reward_def.get("icon", ""))
+	if icon_path != "" and ResourceLoader.exists(icon_path):
+		icon_texture = load(icon_path)
 	magnet_radius = float(GameManager.game_config.get("pickup_magnet_radius", 140.0)) + UpgradeManager.get_upgrade_value("pickup_magnet")
 	collect_radius = float(GameManager.game_config.get("pickup_collect_radius", 72.0))
 	magnet_speed = float(GameManager.game_config.get("pickup_magnet_speed", 420.0))
@@ -115,7 +120,21 @@ func _draw() -> void:
 			draw_rect(Rect2(-4, -6, 8, 12), Color.WHITE)
 			draw_circle(Vector2(0, -10), 5.0, Color.WHITE)
 		"weapon_pickup":
-			draw_rect(Rect2(-9, -7, 18, 14), Color("2f2a3b"))
+			if icon_texture != null:
+				draw_texture_rect(icon_texture, Rect2(-26, -15, 52, 30), false, Color.WHITE)
+			else:
+				draw_rect(Rect2(-14, -7, 28, 14), Color("2f2a3b"))
+				draw_line(Vector2(-11, 0), Vector2(11, 0), Color.WHITE, 3.0)
+		"supplies":
+			draw_rect(Rect2(-9, -9, 18, 18), Color("6f8e68"))
+		"survivors":
+			draw_circle(Vector2(0, -7), 5.0, Color.WHITE)
+			draw_rect(Rect2(-5, -2, 10, 13), Color.WHITE)
+		"tesla_ammo":
+			if icon_texture != null:
+				draw_texture_rect(icon_texture, Rect2(-18, -18, 36, 36), false, Color.WHITE)
+			else:
+				draw_polyline(PackedVector2Array([Vector2(-8,-10),Vector2(1,-2),Vector2(-3,2),Vector2(8,10)]), Color("8ee4ff"), 4.0)
 		"special_ammo":
 			draw_line(Vector2(-7, 6), Vector2(0, -10), Color.WHITE, 3.0)
 			draw_line(Vector2(0, -10), Vector2(7, 6), Color.WHITE, 3.0)

@@ -31,7 +31,7 @@ func _rebuild() -> void:
 		]
 		var progress := Label.new()
 		progress.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		progress.text = "Progress: %d / %d | Reward: %d coins | Claimed: %d" % [row_data["progress"], row_data["target"], row_data["reward_coins"], row_data["claimed_count"]]
+		progress.text = "Progress: %d / %d | Reward: %d Coins + %d Supplies%s | Claimed: %d" % [row_data["progress"], row_data["target"], row_data["reward_coins"], row_data.get("reward_supplies", 0), " + %d Survivors" % int(row_data.get("reward_survivors", 0)) if int(row_data.get("reward_survivors", 0)) > 0 else "", row_data["claimed_count"]]
 		var claim_button := Button.new()
 		claim_button.text = "Claim Reward"
 		claim_button.disabled = not row_data["claim_pending"]

@@ -122,7 +122,7 @@ func can_purchase_tree_upgrade(upgrade_id: String) -> bool:
 		return false
 	if is_tree_upgrade_owned(upgrade_id) or not are_tree_prerequisites_met(upgrade_id):
 		return false
-	return int(SaveManager.save_data.get("banked_coins", 0)) >= int(definition.get("cost", 0))
+	return _requirements_met(definition) and SaveManager.can_afford_resources(get_tree_costs(upgrade_id))
 
 func purchase_tree_upgrade(upgrade_id: String) -> bool:
 	if not can_purchase_tree_upgrade(upgrade_id):
@@ -130,8 +130,10 @@ func purchase_tree_upgrade(upgrade_id: String) -> bool:
 	purchase_in_progress = true
 	var snapshot: Dictionary = SaveManager.save_data.duplicate(true)
 	var definition := get_tree_definition(upgrade_id)
-	var cost := int(definition.get("cost", 0))
-	SaveManager.save_data["banked_coins"] = int(SaveManager.save_data.get("banked_coins", 0)) - cost
+	var costs := get_tree_costs(upgrade_id)
+	if not SaveManager.spend_resources(costs, false):
+		purchase_in_progress = false
+		return false
 	var owned: Array = SaveManager.save_data.get("permanent_upgrade_ids", [])
 	owned.append(upgrade_id)
 	SaveManager.save_data["permanent_upgrade_ids"] = owned
@@ -152,13 +154,33 @@ func purchase_tree_upgrade(upgrade_id: String) -> bool:
 	return true
 
 func _apply_tree_effect_to_legacy_progression(definition: Dictionary) -> void:
-	var effect_type: String = String(definition.get("effect_type", ""))
+	_apply_single_tree_effect(String(definition.get("effect_type", "")), definition.get("effect_value"))
+	for extra_effect in definition.get("additional_effects", []):
+		if extra_effect is Dictionary:
+			_apply_single_tree_effect(String(extra_effect.get("effect_type", "")), extra_effect.get("effect_value"))
+
+func _apply_single_tree_effect(effect_type: String, effect_value: Variant) -> void:
+	if effect_type == "hero_unlock":
+		var heroes: Dictionary = SaveManager.save_data.get("heroes", {})
+		var unlocked: Array = heroes.get("unlocked", [])
+		if not unlocked.has(String(effect_value)):
+			unlocked.append(String(effect_value))
+		heroes["unlocked"] = unlocked
+		SaveManager.save_data["heroes"] = heroes
+		return
+	if effect_type in ["weapon_unlock", "tesla_unlock"]:
+		var weapon_id := String(effect_value) if effect_type == "weapon_unlock" else "tesla_cannon"
+		var inventory: Array = SaveManager.save_data.get("weapon_inventory", ["rifle"])
+		if not inventory.has(weapon_id):
+			inventory.append(weapon_id)
+		SaveManager.save_data["weapon_inventory"] = inventory
+		return
 	if not upgrade_defs.has(effect_type):
 		return
 	var old_definition: Dictionary = upgrade_defs[effect_type]
 	if String(old_definition.get("type", "")) == "choice":
 		SaveManager.save_data["upgrades"][effect_type] = max(1, int(SaveManager.save_data["upgrades"].get(effect_type, 0)))
-		SaveManager.save_data["upgrade_choices"][effect_type] = String(definition.get("effect_value", ""))
+		SaveManager.save_data["upgrade_choices"][effect_type] = String(effect_value)
 		return
 	SaveManager.save_data["upgrades"][effect_type] = min(
 		int(SaveManager.save_data["upgrades"].get(effect_type, 0)) + 1,
@@ -173,9 +195,68 @@ func get_tree_node_state(upgrade_id: String) -> String:
 		return "purchased"
 	if not are_tree_prerequisites_met(upgrade_id):
 		return "locked"
-	if int(SaveManager.save_data.get("banked_coins", 0)) < int(definition.get("cost", 0)):
+	if not _requirements_met(definition):
+		return "locked"
+	if not SaveManager.can_afford_resources(get_tree_costs(upgrade_id)):
 		return "unaffordable"
 	return "available"
+
+func get_tree_costs(upgrade_id: String) -> Dictionary:
+	var definition := get_tree_definition(upgrade_id)
+	var costs: Dictionary = definition.get("costs", {}).duplicate(true)
+	if costs.is_empty():
+		costs["coins"] = max(0, int(definition.get("cost", 0)))
+	return {
+		"coins": max(0, int(costs.get("coins", 0))),
+		"supplies": max(0, int(costs.get("supplies", 0))),
+		"survivors": max(0, int(costs.get("survivors", 0)))
+	}
+
+func format_tree_cost(upgrade_id: String) -> String:
+	var costs := get_tree_costs(upgrade_id)
+	var parts: Array[String] = []
+	for resource_id in ["coins", "supplies", "survivors"]:
+		var amount := int(costs.get(resource_id, 0))
+		if amount > 0:
+			parts.append("%d %s" % [amount, resource_id.capitalize()])
+	return "Free" if parts.is_empty() else " + ".join(parts)
+
+func has_tree_effect(effect_type: String, effect_value: Variant = null) -> bool:
+	for upgrade_id in get_owned_tree_ids():
+		var definition := get_tree_definition(String(upgrade_id))
+		if String(definition.get("effect_type", "")) != effect_type:
+			for extra_effect in definition.get("additional_effects", []):
+				if extra_effect is Dictionary and String(extra_effect.get("effect_type", "")) == effect_type and (effect_value == null or extra_effect.get("effect_value") == effect_value):
+					return true
+			continue
+		if effect_value == null or definition.get("effect_value") == effect_value:
+			return true
+	return false
+
+func get_tree_effect_total(effect_type: String) -> float:
+	var total := 0.0
+	for upgrade_id in get_owned_tree_ids():
+		var definition := get_tree_definition(String(upgrade_id))
+		if String(definition.get("effect_type", "")) == effect_type:
+			total += float(definition.get("effect_value", 0.0))
+		for extra_effect in definition.get("additional_effects", []):
+			if extra_effect is Dictionary and String(extra_effect.get("effect_type", "")) == effect_type:
+				total += float(extra_effect.get("effect_value", 0.0))
+	return total
+
+func _requirements_met(definition: Dictionary) -> bool:
+	var requirements: Dictionary = definition.get("requirements", {})
+	if int(SaveManager.save_data.get("survivors", 0)) < int(requirements.get("survivor_count", 0)):
+		return false
+	var defeated: Array = SaveManager.save_data.get("defeated_boss_ids", [])
+	for boss_id in requirements.get("boss_defeats", []):
+		if not defeated.has(String(boss_id)):
+			return false
+	var discovered: Array = SaveManager.save_data.get("discovered_mutations", [])
+	for mutation_id in requirements.get("mutation_research", []):
+		if not discovered.has(String(mutation_id)):
+			return false
+	return true
 
 func get_upgrade_value(upgrade_id: String) -> float:
 	var def: Dictionary = upgrade_defs.get(upgrade_id, {})

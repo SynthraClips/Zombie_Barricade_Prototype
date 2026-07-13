@@ -1,6 +1,20 @@
 # Placeholder Asset Manifest
 
-The project currently renders most prototype visuals with Godot drawing primitives rather than image files. Replacing these entries requires editing the named script or scene; there were no active placeholder image files to move when this manifest was created. The integrated `goblin_normal` walker is production artwork and is intentionally excluded.
+The project uses replaceable SVG placeholders for the expansion content and retains drawing primitives as runtime fallbacks. The integrated `goblin_normal` walker is existing artwork and is intentionally excluded. Data files point to these placeholders so final art can replace the files without gameplay-code changes.
+
+## Expansion placeholder folders
+
+| Folder | Expected source size | Orientation / frames | Runtime contract |
+| --- | --- | --- | --- |
+| `weapons/` | 96×48 | Weapon faces right; one static frame | Paths are stored in `data/weapons.json`; used by Pickups and weapon Gates |
+| `heroes/` | 72×96 | Character faces up-road; static fallback, future `idle`, `attack`, `ultimate` hooks | Paths are stored in hero definitions in `data/game_config.json` |
+| `enemies/animals/` | 64×48 or 64×56 | Faces down-road; future `move`, `attack`, `hit`, `death` hooks | Paths are stored in `data/enemies.json` |
+| `bosses/` | 96×96 | Faces down-road; future `move`, `attack`, `phase`, `hit`, `death` hooks | One descriptive placeholder per boss archetype |
+| `buildings/` | 160×120 | Front/road-facing, single frame; optional night-lit variant | Paths are stored in `data/environments.json` |
+| `pickups/` | 64×64 | Single readable icon; optional `pulse`, `collect` animation | Tesla Ammo Cache is distinct from temporary Ammo effects |
+| `night/` | 64×128 or seamless portrait layers | Upright environmental lighting | Used as replaceable night-light/environment references |
+
+Keep transparent backgrounds, preserve filenames, and use Godot's default SVG import. Animated replacements should keep the listed animation names even when their frame counts differ.
 
 | Placeholder | Current location | Represents / used by | Recommended replacement | Animation | Replacement scope |
 | --- | --- | --- | --- | --- | --- |
@@ -18,4 +32,4 @@ The project currently renders most prototype visuals with Godot drawing primitiv
 | UI hit/muzzle flashes | `scenes/ui/UI.tscn`, `scripts/ui/UIManager.gd`, `scripts/gameplay/Soldier.gd::_draw` | Feedback overlays and flashes | Full-screen overlay/particle textures | Short one-shot | Scene/code change required |
 | Generic screen backdrops | `scenes/main/MainMenu.tscn`, `scenes/ui/MissionScreen.tscn`, `scenes/ui/SettingsScreen.tscn`, `scenes/ui/UpgradeScreen.tscn` | Flat `ColorRect` prototype backgrounds | Scalable 9-slice panels or aspect-safe backgrounds | None required | Scene/theme change required |
 
-Pixel-art replacements should use nearest-neighbour filtering and no mipmaps. File-only replacement is not currently sufficient for any entry above because the active placeholders are generated in code or are Godot primitives.
+Pixel-art replacements should use nearest-neighbour filtering and no mipmaps. Legacy primitive entries still require scene integration; expansion placeholders are already data-addressable.

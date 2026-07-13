@@ -1,70 +1,19 @@
 {
-  "spawn_distance_interval": 48.0,
-  "spawn_distance_min": 42.0,
-  "spawn_distance_max": 58.0,
-  "gate_row_frequency": 1.0,
-  "spawn_start_distance": 28.0,
-  "initial_gate_free_distance": 28.0,
-  "minimum_reaction_distance": 42.0,
-  "gate_width": 120.0,
-  "lane_margin": 14.0,
-  "max_gates_per_row": 3,
-  "spawn_y": -280.0,
-  "damage_per_value_step": 30.0,
-  "damage_per_value_step_by_distance": [
-    {"distance": 0.0, "damage_per_value_step": 30.0},
-    {"distance": 160.0, "damage_per_value_step": 45.0},
-    {"distance": 320.0, "damage_per_value_step": 60.0}
+  "spawn_distance_interval":58.0,"spawn_distance_min":50.0,"spawn_distance_max":70.0,"gate_row_frequency":0.9,"spawn_start_distance":34.0,"initial_gate_free_distance":34.0,"minimum_reaction_distance":50.0,"gate_width":120.0,"lane_margin":14.0,"max_gates_per_row":3,"spawn_y":-280.0,
+  "damage_per_value_step":42.0,"damage_per_value_step_by_distance":[{"distance":0.0,"damage_per_value_step":42.0},{"distance":240.0,"damage_per_value_step":58.0},{"distance":520.0,"damage_per_value_step":76.0}],
+  "positive_scaling":{"run_growth":0.22,"soldier_value_cap":4,"large_squad_threshold":18,"temporary_bonus_cap":0.4},
+  "weapon_gate":{"change_cooldown":0.35,"max_changes":4},
+  "fallback_row_gate_count":2,"start_values":[-2,1,-1,2,-3,2],
+  "rows":[
+    {"weight":1.2,"category":"squad","gates":[{"type":"add_soldiers","value":2},{"type":"add_role_soldier","value":1,"role_id":"medic","label":"Field Medic"},{"type":"remove_soldiers","value":1}]},
+    {"weight":1.1,"category":"resources","gates":[{"type":"coins","value":5},{"type":"supplies","value":7},{"type":"survivors","value":1}]},
+    {"weight":1.0,"category":"combat","gates":[{"type":"fire_rate_boost","value":0.18},{"type":"damage_boost","value":0.18},{"type":"temporary_shield","value":28}]},
+    {"weight":0.9,"category":"weapon","gates":[{"type":"weapon_pickup","value":1},{"type":"tesla_ammo","value":5,"label":"Tesla Ammo"},{"type":"barricade_repair","value":30}]},
+    {"weight":0.7,"category":"hero","gates":[{"type":"hero_cooldown","value":5},{"type":"hero_duration_gate","value":4},{"type":"heal_soldiers","value":2}]},
+    {"weight":0.55,"category":"environment","gates":[{"type":"night_section","value":1,"label":"Night Route"},{"type":"supplies","value":10,"label":"Supply Route"},{"type":"survivors","value":2,"label":"Survivor Route"}]},
+    {"weight":0.7,"category":"risk","gates":[{"type":"risk_gate","label":"Elite Ambush","color":"#ff7d7d","reward_type":"supplies","reward_value":12,"spawn_enemy_count":4,"spawn_pool":["runner","exploder","mutated_dog","mutated_boar"]},{"type":"weapon_pickup","value":1},{"type":"remove_soldiers","value":2}]},
+    {"weight":0.45,"category":"risk","gates":[{"type":"risk_gate","label":"Mutation Bargain","color":"#d77dff","reward_type":"survivors","reward_value":2,"spawn_enemy_count":5,"spawn_pool":["armoured_walker","screamer","rat_swarm"]},{"type":"barricade_cooldown_reset","value":1},{"type":"supplies","value":8}]},
+    {"weight":0.22,"category":"risk","gates":[{"type":"risk_gate","label":"Boss Challenge","color":"#ff6262","reward_type":"supplies","reward_value":22,"spawn_enemy_count":0,"boss_pool":["screamer_matriarch","plague_spitter","alpha_beast"]},{"type":"weapon_pickup","value":1},{"type":"survivors","value":1}]}
   ],
-  "fallback_row_gate_count": 2,
-  "start_values": [-2, 1, -1, 2, -3, 3],
-  "rows": [
-    {
-      "gates": [
-        {"type": "add_soldiers", "value": 2},
-        {"type": "remove_soldiers", "value": 1}
-      ]
-    },
-    {
-      "gates": [
-        {"type": "coins", "value": 10},
-        {"type": "fire_rate_boost", "value": 0.2}
-      ]
-    },
-    {
-      "gates": [
-        {"type": "damage_boost", "value": 0.2},
-        {"type": "temporary_shield", "value": 30},
-        {"type": "remove_soldiers", "value": 2}
-      ]
-    },
-    {
-      "gates": [
-        {"type": "add_soldiers", "value": 3},
-        {"type": "multiply_soldiers", "value": 2}
-      ]
-    },
-    {
-      "gates": [
-        {"type": "weapon_pickup", "value": 1, "label": "Weapon Crate"},
-        {"type": "barricade_repair", "value": 35, "label": "Barricade Parts", "color": "#b8d2ff"},
-        {"type": "remove_soldiers", "value": 2}
-      ]
-    },
-    {
-      "gates": [
-        {"type": "heal_soldiers", "value": 2, "label": "Medical Supplies", "color": "#8cffb2"},
-        {"type": "fire_rate_boost", "value": 0.35, "label": "Ammo Cache"},
-        {"type": "coins", "value": 18}
-      ]
-    },
-    {
-      "gates": [
-        {"type": "risk_gate", "label": "Risk Gate", "color": "#ff7d7d", "reward_type": "add_soldiers", "reward_value": 3, "spawn_enemy_count": 3, "spawn_pool": ["runner", "runner", "exploder"]},
-        {"type": "weapon_pickup", "value": 1, "label": "Armoury Truck", "color": "#ffb266"}
-      ]
-    }
-  ],
-  "max_value": 12,
-  "min_value": -12
+  "max_value":6,"min_value":-8
 }

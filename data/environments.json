@@ -1,0 +1,13 @@
+{
+  "night":{"enabled":true,"minimum_distance":230.0,"section_duration_distance":145.0,"minimum_day_gap":190.0,"transition_seconds":2.5,"chance_per_check":0.62,"enemy_weight_multipliers":{"mutated_dog":1.45,"rat_swarm":1.35,"carrion_bird":1.8,"night_stalker":2.0},"background_color":"#101827","road_color":"#273244","moonlight_color":"#8fb9e8","lamp_placeholder":"res://assets/placeholder/night/night_lamp_placeholder.svg"},
+  "buildings":{"spawn_interval_distance":42.0,"max_visible":6,"definitions":{
+    "house":{"label":"Abandoned House","weight":1.2,"color":"#594f4d","event_bias":"survivor","lit_at_night":true,"placeholder":"res://assets/placeholder/buildings/building_house_placeholder.svg"},
+    "petrol_station":{"label":"Petrol Station","weight":0.8,"color":"#765344","event_bias":"hazard","lit_at_night":true,"placeholder":"res://assets/placeholder/buildings/building_petrol_station_placeholder.svg"},
+    "warehouse":{"label":"Warehouse","weight":1.0,"color":"#4e5960","event_bias":"supplies","placeholder":"res://assets/placeholder/buildings/building_warehouse_placeholder.svg"},
+    "armoury":{"label":"Military Checkpoint","weight":0.55,"color":"#4b5948","event_bias":"weapon","lit_at_night":true,"placeholder":"res://assets/placeholder/buildings/building_armoury_placeholder.svg"},
+    "farm":{"label":"Abandoned Farm","weight":0.75,"color":"#655a3d","event_bias":"animals","boss_chance":0.06,"boss_min_progress":0.5,"boss_pool":["alpha_beast"],"placeholder":"res://assets/placeholder/buildings/building_farm_placeholder.svg"},
+    "clinic":{"label":"Field Clinic","weight":0.65,"color":"#4c6966","event_bias":"survivor","lit_at_night":true,"placeholder":"res://assets/placeholder/buildings/building_clinic_placeholder.svg"},
+    "garage":{"label":"Ruined Garage","weight":0.9,"color":"#60554d","event_bias":"ammo","placeholder":"res://assets/placeholder/buildings/building_garage_placeholder.svg"},
+    "apartments":{"label":"Ruined Apartments","weight":0.65,"color":"#554f5e","event_bias":"ambush","boss_chance":0.07,"boss_min_progress":0.36,"boss_pool":["screamer_matriarch","plague_spitter"],"placeholder":"res://assets/placeholder/buildings/building_apartments_placeholder.svg"}
+  }}
+}

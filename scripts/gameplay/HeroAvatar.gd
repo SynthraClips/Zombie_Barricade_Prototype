@@ -6,12 +6,17 @@ var hero_id := ""
 var hero_name := "Hero"
 var call_in_effect := ""
 var pulse := 0.0
+var hero_texture: Texture2D
 
 func initialize(run: Node, definition_id: String, definition: Dictionary) -> void:
 	run_manager = run
 	hero_id = definition_id
 	hero_name = String(definition.get("name", "Hero"))
 	call_in_effect = String(definition.get("call_in_effect", ""))
+	var placeholder_path := String(definition.get("placeholder", ""))
+	if placeholder_path != "" and ResourceLoader.exists(placeholder_path):
+		hero_texture = load(placeholder_path)
+	z_index = 20
 	z_index = 50
 	position = _target_position()
 	queue_redraw()
@@ -31,6 +36,10 @@ func _target_position() -> Vector2:
 	return desired
 
 func _draw() -> void:
+	if hero_texture != null:
+		draw_texture_rect(hero_texture, Rect2(-36, -80, 72, 96), false)
+		draw_circle(Vector2.ZERO, 42.0 + sin(pulse) * 3.0, Color("9ee3ff", 0.16), false, 3.0)
+		return
 	var color := Color("ffd166")
 	if hero_id == "engineer_vale":
 		color = Color("72d6ff")

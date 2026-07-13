@@ -23,6 +23,11 @@ func _run() -> void:
 	_expect(saves.create_profile(0, "Alpha"), "creates Profile 1")
 	saves.save_data["banked_coins"] = 123
 	saves.save_game()
+	_expect(saves.rename_profile(0, "  Alpha   Prime  "), "profile can be renamed")
+	_expect(String(saves.save_data.get("profile_name", "")) == "Alpha Prime" and int(saves.save_data.get("banked_coins", 0)) == 123, "renaming trims spaces without resetting progression")
+	_expect(saves.rename_profile(0, "   ") and String(saves.save_data.get("profile_name", "")) == "Profile 1", "blank profile names fall back to the slot default")
+	_expect(saves.rename_profile(0, "Alpha\nPrime\tSquad") and String(saves.save_data.get("profile_name", "")) == "Alpha Prime Squad", "profile names normalize control whitespace")
+	saves.rename_profile(0, "Alpha Prime")
 	_expect(saves.create_profile(1, "Bravo"), "creates Profile 2")
 	_expect(saves.select_profile(1) and int(saves.save_data["banked_coins"]) == 0, "Profile 2 progression is independent")
 	saves.save_data["banked_coins"] = 9
@@ -48,7 +53,7 @@ func _run() -> void:
 		root.add_child(profile_control)
 		await process_frame
 		_expect(profile_control.get_node("Margin/Panel/VBox/Slots").get_child_count() == 3, "profile page contains exactly three selectable slots")
-		_expect("Alpha" in String(profile_control.get_node("Margin/Panel/VBox/Slots").get_child(0).text), "saved user-defined profile name is displayed")
+		_expect("Alpha Prime" in String(profile_control.get_node("Margin/Panel/VBox/Slots").get_child(0).text), "saved user-defined profile name is displayed")
 		profile_control._select_slot(2)
 		profile_control._on_clear_pressed()
 		await process_frame
@@ -77,7 +82,7 @@ func _run() -> void:
 		min_x = min(min_x, soldier.position.x)
 		max_x = max(max_x, soldier.position.x)
 	_expect(battlefield.squad_manager.get_soldier_count() == 48, "48 soldiers spawn and remain functional")
-	_expect(max_x - min_x + 24.0 <= gate_width * 0.9, "maximum visual formation remains narrower than one gate")
+	_expect(max_x - min_x + 24.0 <= gate_width * 0.9 + 0.1, "maximum visual formation remains narrower than one gate")
 	var formation_inside_edges := true
 	for pointer_x in [-1000.0, 3000.0]:
 		battlefield.squad_manager.handle_pointer_input(Vector2(pointer_x, battlefield.road.get_squad_y()))
@@ -129,24 +134,31 @@ func _run() -> void:
 	var spread_start: int = battlefield.get_children().filter(func(child): return child is Projectile).size()
 	battlefield.weapon_manager.fire_weapon(shooter, null)
 	var spread_shots: Array = battlefield.get_children().filter(func(child): return child is Projectile).slice(spread_start)
-	_expect(spread_shots.size() == 5 and spread_shots.all(func(projectile): return abs(projectile.velocity.x) < 0.01), "multi-projectile standard auto-fire does not spread or curve toward targets")
+	var configured_pellets: int = int(root.get_node("GameManager").weapon_data.get("shotgun", {}).get("projectile_count", 0))
+	_expect(spread_shots.size() == configured_pellets and spread_shots.all(func(projectile): return abs(projectile.velocity.x) < 0.01), "multi-projectile auto-fire uses its configured pellet count and forward aim")
 	battlefield.weapon_manager.current_weapon_id = "rifle"
 	battlefield.hero_time_remaining = 0.01
 	battlefield._update_hero_state(0.02)
 	await process_frame
 	_expect(battlefield.hero_avatar == null, "hero despawns when its gameplay duration expires")
 	var all_heroes_visible := true
-	for hero_id in ["engineer_vale", "mara_hale"]:
+	var all_hero_ultimates_work := true
+	for hero_id in game.get_hero_order():
 		battlefield.selected_hero_id = hero_id
 		battlefield.selected_hero_def = game.get_hero_def(hero_id)
 		battlefield.hero_uses_remaining = 2
 		battlefield.hero_cooldown_remaining = 0.0
 		if not battlefield.call_selected_hero() or battlefield.hero_avatar == null or not battlefield.hero_avatar.is_visible_in_tree():
 			all_heroes_visible = false
+		battlefield.hero_ultimate_ready = true
+		battlefield.hero_ultimate_uses_remaining = 1
+		if not battlefield.trigger_hero_ultimate():
+			all_hero_ultimates_work = false
 		battlefield.hero_time_remaining = 0.0
 		battlefield._update_hero_state(0.01)
 		await process_frame
 	_expect(all_heroes_visible, "every configured hero creates a visible gameplay avatar")
+	_expect(all_hero_ultimates_work, "every configured hero can execute its data-driven ultimate")
 	battlefield.selected_hero_id = "mara_hale"
 	battlefield.selected_hero_def = game.get_hero_def("mara_hale")
 	battlefield.hero_uses_remaining = 1

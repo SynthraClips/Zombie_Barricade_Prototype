@@ -57,7 +57,7 @@ func _process(delta: float) -> void:
 func _refresh() -> void:
 	var stats: Dictionary = SaveManager.save_data.get("stats", {})
 	if bank_label != null:
-		bank_label.text = "Saved Coins: %d" % int(SaveManager.save_data.get("banked_coins", 0))
+		bank_label.text = "%s | Coins %d | Supplies %d | Survivors %d" % [String(SaveManager.save_data.get("profile_name", "Profile")), int(SaveManager.save_data.get("banked_coins", 0)), int(SaveManager.save_data.get("supplies", 0)), int(SaveManager.save_data.get("survivors", 0))]
 	if best_distance_label != null:
 		best_distance_label.text = "Best Distance: %dm" % int(stats.get("best_distance", 0))
 	if kills_label != null:
